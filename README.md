@@ -134,9 +134,29 @@ A comprehensive web application for managing international student admissions, a
    REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    REACT_APP_FIREBASE_APP_ID=your_app_id
    REACT_APP_FIREBASE_MEASUREMENT_ID=your_measurement_id
+
+   # EmailJS Configuration (for email notifications)
+   REACT_APP_EMAILJS_SERVICE_ID=your_emailjs_service_id
+   REACT_APP_EMAILJS_TEMPLATE_ID=your_emailjs_template_id
+   REACT_APP_EMAILJS_USER_ID=your_emailjs_user_id
    ```
 
-4. **Start development server**
+4. **Configure EmailJS (Optional but Recommended)**
+   
+   For email notifications to work, set up EmailJS:
+   
+   a. Sign up at https://www.emailjs.com/
+   b. Create an Email Service (Gmail, Outlook, etc.)
+   c. Create an Email Template with these variables:
+      - `to_email` - Recipient email
+      - `to_name` - Recipient name
+      - `from_name` - Sender name
+      - `from_email` - Sender email
+      - `subject` - Email subject
+      - `message` - Email content
+   d. Copy your Service ID, Template ID, and User ID to the environment variables above
+
+5. **Start development server**
    ```bash
    npm start
    ```
@@ -213,6 +233,29 @@ src/
 }
 ```
 
+## 📧 Email Features
+
+The system includes comprehensive email notifications:
+
+### **Student Notifications**
+- **Inquiry Confirmation**: Students receive confirmation emails when they submit inquiries
+- **Status Updates**: Students are notified when their application status changes (pending → admitted/rejected)
+
+### **Agent Notifications**
+- **Welcome Email**: New agents receive welcome emails with their referral key and commission rate
+- **Referral Notifications**: Agents are notified when students use their referral key
+
+### **Admin Notifications**
+- **New Inquiry Alerts**: Admins receive notifications for all new student inquiries
+- **System Updates**: Important system changes trigger admin notifications
+
+### **Email Setup**
+To enable email functionality:
+1. Sign up for EmailJS (https://www.emailjs.com/)
+2. Configure your email service (Gmail, Outlook, etc.)
+3. Create email templates with the required variables
+4. Add your EmailJS credentials to environment variables
+
 ## 📊 Admin Dashboard Features
 
 ### Overview Tab
@@ -227,6 +270,7 @@ src/
 - Complete list of all student applications
 - Filter by status (pending, admitted, rejected)
 - Update application status
+- Automatic email notifications on status changes
 - View agent referrals
 - Application dates and details
 
