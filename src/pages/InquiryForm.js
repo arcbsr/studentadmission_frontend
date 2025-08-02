@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { database } from '../firebase/config';
 import { ref, push, get } from 'firebase/database';
 import { User, MessageSquare, BookOpen } from 'lucide-react';
+import { sendInquiryConfirmation, sendAgentReferralNotification, sendAdminInquiryNotification } from '../utils/emailService';
 
 const InquiryForm = () => {
   const [loading, setLoading] = useState(false);
@@ -59,9 +60,37 @@ const InquiryForm = () => {
         updatedAt: Date.now()
       };
 
+      // Save inquiry to Firebase
       await push(ref(database, 'inquiries'), inquiryData);
       
-      toast.success('Your inquiry has been submitted successfully! We will contact you within 24 hours.');
+      // Send confirmation email to student
+      try {
+        await sendInquiryConfirmation(data, agentInfo);
+        console.log('Confirmation email sent to student');
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't fail the inquiry submission if email fails
+      }
+
+      // Send notification to agent if referral was used
+      if (agentInfo) {
+        try {
+          await sendAgentReferralNotification(agentInfo, data);
+          console.log('Referral notification sent to agent');
+        } catch (emailError) {
+          console.error('Failed to send agent notification:', emailError);
+        }
+      }
+
+      // Send notification to admin
+      try {
+        await sendAdminInquiryNotification(data, agentInfo);
+        console.log('Admin notification sent');
+      } catch (emailError) {
+        console.error('Failed to send admin notification:', emailError);
+      }
+      
+      toast.success('Your inquiry has been submitted successfully! Check your email for confirmation.');
       reset();
       navigate('/');
     } catch (error) {

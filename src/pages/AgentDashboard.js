@@ -352,6 +352,21 @@ const AgentDashboard = () => {
                           <div className="text-sm text-gray-500">
                             {referral.email}
                           </div>
+                          {referral.phone && (
+                            <div className="text-xs text-gray-400">
+                              📞 {referral.phone}
+                            </div>
+                          )}
+                          {referral.address && (
+                            <div className="text-xs text-gray-400 max-w-xs truncate" title={referral.address}>
+                              📍 {referral.address}
+                            </div>
+                          )}
+                          {referral.country && referral.state && (
+                            <div className="text-xs text-gray-400">
+                              🌍 {referral.state}, {referral.country}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

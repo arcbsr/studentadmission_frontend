@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { initializeUniversities } from '../utils/initializeUniversities';
+import { sendStatusUpdateNotification, sendAgentWelcomeEmail } from '../utils/emailService';
 
 const AdminDashboard = () => {
   const { currentUser, userRole, userData, isSuperAdmin } = useAuth();
@@ -252,11 +253,29 @@ const AdminDashboard = () => {
 
   const updateInquiryStatus = async (inquiryId, newStatus) => {
     try {
+      // Find the inquiry to get student data
+      const inquiry = inquiries.find(inq => inq.id === inquiryId);
+      if (!inquiry) {
+        toast.error('Inquiry not found!');
+        return;
+      }
+
+      // Update status in Firebase
       await update(ref(database, `inquiries/${inquiryId}`), {
         status: newStatus,
         updatedAt: Date.now()
       });
-      toast.success('Inquiry status updated successfully!');
+
+      // Send status update email to student
+      try {
+        await sendStatusUpdateNotification(inquiry, newStatus, inquiry.agentInfo);
+        console.log('Status update email sent to student');
+      } catch (emailError) {
+        console.error('Failed to send status update email:', emailError);
+        // Don't fail the status update if email fails
+      }
+
+      toast.success('Inquiry status updated successfully! Email notification sent.');
     } catch (error) {
       console.error('Error updating inquiry status:', error);
       toast.error('Failed to update inquiry status.');
@@ -532,7 +551,16 @@ const AdminDashboard = () => {
           
           await set(ref(database, `agents/${userCredential.user.uid}`), agentData);
           
-          toast.success(`Agent created successfully! Referral Key: ${referralKey}`);
+          // Send welcome email to new agent
+          try {
+            await sendAgentWelcomeEmail(agentData);
+            console.log('Welcome email sent to new agent');
+          } catch (emailError) {
+            console.error('Failed to send welcome email:', emailError);
+            // Don't fail the user creation if email fails
+          }
+          
+          toast.success(`Agent created successfully! Referral Key: ${referralKey}. Welcome email sent.`);
         } else {
           toast.success('User created successfully!');
         }
@@ -545,7 +573,9 @@ const AdminDashboard = () => {
           displayName: userForm.name
         });
 
-        toast.success('User created successfully!');
+        if (userForm.role !== 'agent') {
+          toast.success('User created successfully!');
+        }
       }
 
       setShowUserForm(false);
@@ -878,6 +908,21 @@ const AdminDashboard = () => {
                             <div className="text-sm text-gray-500">
                               {inquiry.email}
                             </div>
+                            {inquiry.phone && (
+                              <div className="text-xs text-gray-400">
+                                📞 {inquiry.phone}
+                              </div>
+                            )}
+                            {inquiry.address && (
+                              <div className="text-xs text-gray-400 max-w-xs truncate" title={inquiry.address}>
+                                📍 {inquiry.address}
+                              </div>
+                            )}
+                            {inquiry.country && inquiry.state && (
+                              <div className="text-xs text-gray-400">
+                                🌍 {inquiry.state}, {inquiry.country}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

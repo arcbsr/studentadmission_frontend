@@ -73,7 +73,7 @@ export const initializeDefaultAdmin = async () => {
           );
           
           if (adminEntry) {
-            const [adminUid, adminData] = adminEntry;
+            const [adminUid] = adminEntry;
             
             // Update user data in database
             await update(ref(database, `users/${adminUid}`), {

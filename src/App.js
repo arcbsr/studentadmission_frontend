@@ -5,6 +5,8 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { initializeDefaultAdmin } from './utils/initializeAdmin';
 import { initializeUniversities } from './utils/initializeUniversities';
+import './utils/quickEmailTest'; // Import for global email testing
+import './utils/emailVerification'; // Import for email verification
 
 // Components
 import Navbar from './components/Navbar';
@@ -22,6 +24,7 @@ import AgentDashboard from './pages/AgentDashboard';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import TestPage from './pages/TestPage';
+import EmailTest from './pages/EmailTest';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -82,8 +85,9 @@ function App() {
                   }
                 />
 
-                {/* Test Route */}
+                {/* Test Routes */}
                 <Route path="/test" element={<TestPage />} />
+                <Route path="/email-test" element={<EmailTest />} />
               </Routes>
             </main>
             <Footer />
