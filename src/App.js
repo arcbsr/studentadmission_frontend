@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { initializeDefaultAdmin } from './utils/initializeAdmin';
 import { initializeUniversities } from './utils/initializeUniversities';
+import { initializeDefaultFaqs } from './utils/initializeFaqs';
 import './utils/quickEmailTest'; // Import for global email testing
 import './utils/emailVerification'; // Import for email verification
 
@@ -25,7 +26,9 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import TestPage from './pages/TestPage';
 import EmailTest from './pages/EmailTest';
+import FAQ from './pages/FAQ';
 import ProtectedRoute from './components/ProtectedRoute';
+import RedirectIfAuthenticated from './components/RedirectIfAuthenticated';
 
 function App() {
   useEffect(() => {
@@ -46,6 +49,15 @@ function App() {
         console.error('Universities initialization failed:', result.message);
       }
     });
+
+    // Initialize default FAQs
+    initializeDefaultFaqs().then(result => {
+      if (result.success) {
+        console.log('FAQs initialization:', result.message);
+      } else {
+        console.error('FAQs initialization failed:', result.message);
+      }
+    });
   }, []);
 
   return (
@@ -56,12 +68,37 @@ function App() {
             <Navbar />
             <main className="flex-1">
               <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/universities" element={<Universities />} />
-                <Route path="/inquiry" element={<InquiryForm />} />
+                {/* Public Routes - Only accessible when not logged in */}
+                <Route path="/" element={
+                  <RedirectIfAuthenticated>
+                    <Home />
+                  </RedirectIfAuthenticated>
+                } />
+                <Route path="/about" element={
+                  <RedirectIfAuthenticated>
+                    <About />
+                  </RedirectIfAuthenticated>
+                } />
+                <Route path="/contact" element={
+                  <RedirectIfAuthenticated>
+                    <Contact />
+                  </RedirectIfAuthenticated>
+                } />
+                <Route path="/universities" element={
+                  <RedirectIfAuthenticated>
+                    <Universities />
+                  </RedirectIfAuthenticated>
+                } />
+                <Route path="/inquiry" element={
+                  <RedirectIfAuthenticated>
+                    <InquiryForm />
+                  </RedirectIfAuthenticated>
+                } />
+                <Route path="/faq" element={
+                  <RedirectIfAuthenticated>
+                    <FAQ />
+                  </RedirectIfAuthenticated>
+                } />
 
                 {/* Agent Routes */}
                 <Route path="/agent/login" element={<AgentLogin />} />

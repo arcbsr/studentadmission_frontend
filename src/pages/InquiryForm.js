@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { database } from '../firebase/config';
-import { ref, push, get } from 'firebase/database';
+import { ref, push, get, update } from 'firebase/database';
 import { User, MessageSquare, BookOpen } from 'lucide-react';
-import { sendInquiryConfirmation, sendAgentReferralNotification, sendAdminInquiryNotification } from '../utils/emailService';
+
 
 const InquiryForm = () => {
   const [loading, setLoading] = useState(false);
@@ -47,50 +47,68 @@ const InquiryForm = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      const inquiryData = {
-        ...data,
+      // Check if inquiry with same email already exists
+      const inquiriesRef = ref(database, 'inquiries');
+      const snapshot = await get(inquiriesRef);
+      let existingInquiryId = null;
+      
+      if (snapshot.exists()) {
+        const inquiries = snapshot.val();
+        const existingInquiry = Object.entries(inquiries).find(([id, inquiry]) => 
+          inquiry.email === data.email
+        );
+        if (existingInquiry) {
+          existingInquiryId = existingInquiry[0];
+        }
+      }
+
+      const newMessage = {
+        message: data.message || 'No message provided',
+        courseInterested: data.courseInterested,
         agentReferralKey: data.agentReferralKey || null,
         agentInfo: agentInfo ? {
           name: agentInfo.name,
           email: agentInfo.email,
           referralKey: agentInfo.referralKey
         } : null,
-        status: 'pending',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        submittedAt: Date.now()
       };
 
-      // Save inquiry to Firebase
-      await push(ref(database, 'inquiries'), inquiryData);
-      
-      // Send confirmation email to student
-      try {
-        await sendInquiryConfirmation(data, agentInfo);
-        console.log('Confirmation email sent to student');
-      } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
-        // Don't fail the inquiry submission if email fails
-      }
+      if (existingInquiryId) {
+        // Update existing inquiry with new message
+        const existingInquiryRef = ref(database, `inquiries/${existingInquiryId}`);
+        const existingSnapshot = await get(existingInquiryRef);
+        const existingData = existingSnapshot.val();
+        
+        const updatedMessages = existingData.messages || [];
+        updatedMessages.push(newMessage);
+        
+        await update(existingInquiryRef, {
+          ...existingData,
+          messages: updatedMessages,
+          updatedAt: Date.now(),
+          lastMessageAt: Date.now()
+        });
+      } else {
+        // Create new inquiry
+        const inquiryData = {
+          fullName: data.fullName,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          country: data.country,
+          state: data.state,
+          messages: [newMessage],
+          status: 'pending',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          lastMessageAt: Date.now()
+        };
 
-      // Send notification to agent if referral was used
-      if (agentInfo) {
-        try {
-          await sendAgentReferralNotification(agentInfo, data);
-          console.log('Referral notification sent to agent');
-        } catch (emailError) {
-          console.error('Failed to send agent notification:', emailError);
-        }
-      }
-
-      // Send notification to admin
-      try {
-        await sendAdminInquiryNotification(data, agentInfo);
-        console.log('Admin notification sent');
-      } catch (emailError) {
-        console.error('Failed to send admin notification:', emailError);
+        await push(ref(database, 'inquiries'), inquiryData);
       }
       
-      toast.success('Your inquiry has been submitted successfully! Check your email for confirmation.');
+      toast.success('Your inquiry has been submitted successfully! We will contact you soon.');
       reset();
       navigate('/');
     } catch (error) {

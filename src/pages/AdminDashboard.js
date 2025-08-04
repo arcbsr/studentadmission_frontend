@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
 import { database, auth } from '../firebase/config';
-import { ref, update, onValue, push, set, remove } from 'firebase/database';
+import { ref, update, onValue, push, set, remove, get } from 'firebase/database';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { 
   Users, 
@@ -24,11 +24,16 @@ import {
   UserX,
   Copy,
   Search,
-  Check
+  Check,
+  MessageSquare,
+  HelpCircle,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { initializeUniversities } from '../utils/initializeUniversities';
 import { sendStatusUpdateNotification, sendAgentWelcomeEmail } from '../utils/emailService';
+import MessageModal from '../components/MessageModal';
 
 const AdminDashboard = () => {
   const { currentUser, userRole, userData, isSuperAdmin } = useAuth();
@@ -58,6 +63,9 @@ const AdminDashboard = () => {
   const [editingCommission, setEditingCommission] = useState(null);
   const [commissionValue, setCommissionValue] = useState('');
   
+  // Message modal state
+  const [messageModal, setMessageModal] = useState({ isOpen: false, inquiry: null });
+  
   // University management
   const [showUniversityForm, setShowUniversityForm] = useState(false);
   const [editingUniversity, setEditingUniversity] = useState(null);
@@ -85,6 +93,13 @@ const AdminDashboard = () => {
     commissionPerReferral: 0
   });
 
+  // FAQ management
+  const [faqs, setFaqs] = useState([]);
+  const [expandedFaqs, setExpandedFaqs] = useState(new Set());
+  const [isAddingFaq, setIsAddingFaq] = useState(false);
+  const [editingFaq, setEditingFaq] = useState(null);
+  const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
+
   useEffect(() => {
     const fetchData = () => {
       // Listen for inquiries
@@ -92,10 +107,28 @@ const AdminDashboard = () => {
       const inquiriesUnsubscribe = onValue(inquiriesRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const inquiriesList = Object.entries(data).map(([id, inquiry]) => ({
-            id,
-            ...inquiry
-          })).sort((a, b) => b.createdAt - a.createdAt);
+          const inquiriesList = Object.entries(data).map(([id, inquiry]) => {
+            // Handle legacy inquiries that don't have messages array
+            if (!inquiry.messages && inquiry.message) {
+              // Convert legacy structure to new structure
+              return {
+                id,
+                ...inquiry,
+                messages: [{
+                  message: inquiry.message,
+                  courseInterested: inquiry.courseInterested,
+                  agentReferralKey: inquiry.agentReferralKey,
+                  agentInfo: inquiry.agentInfo,
+                  submittedAt: inquiry.createdAt
+                }]
+              };
+            }
+            return {
+              id,
+              ...inquiry
+            };
+          }).sort((a, b) => b.createdAt - a.createdAt);
+          
           setInquiries(inquiriesList);
         } else {
           setInquiries([]);
@@ -207,16 +240,29 @@ const AdminDashboard = () => {
 
     fetchData();
   }, []);
+
+  // Load FAQs when component mounts
+  useEffect(() => {
+    loadFaqs();
+  }, []);
   
   // Filter data based on search terms
   useEffect(() => {
     // Filter inquiries
-    const filtered = inquiries.filter(inquiry =>
-      inquiry.fullName?.toLowerCase().includes(inquirySearch.toLowerCase()) ||
-      inquiry.email?.toLowerCase().includes(inquirySearch.toLowerCase()) ||
-      inquiry.courseInterested?.toLowerCase().includes(inquirySearch.toLowerCase()) ||
-      inquiry.agentReferralKey?.toLowerCase().includes(inquirySearch.toLowerCase())
-    );
+    const filtered = inquiries.filter(inquiry => {
+      const searchTerm = inquirySearch.toLowerCase();
+      const hasMatchingMessage = inquiry.messages?.some(msg => 
+        msg.message?.toLowerCase().includes(searchTerm) ||
+        msg.courseInterested?.toLowerCase().includes(searchTerm) ||
+        msg.agentReferralKey?.toLowerCase().includes(searchTerm)
+      );
+      
+      return (
+        inquiry.fullName?.toLowerCase().includes(searchTerm) ||
+        inquiry.email?.toLowerCase().includes(searchTerm) ||
+        hasMatchingMessage
+      );
+    });
     setFilteredInquiries(filtered);
   }, [inquiries, inquirySearch]);
   
@@ -337,6 +383,14 @@ const AdminDashboard = () => {
   const cancelEditCommission = () => {
     setEditingCommission(null);
     setCommissionValue('');
+  };
+
+  const openMessageModal = (inquiry) => {
+    setMessageModal({ isOpen: true, inquiry });
+  };
+
+  const closeMessageModal = () => {
+    setMessageModal({ isOpen: false, inquiry: null });
   };
 
   const toggleAgentStatus = async (agentId, isActive) => {
@@ -652,6 +706,131 @@ const AdminDashboard = () => {
     }
   };
 
+  // FAQ Management Functions
+  const loadFaqs = async () => {
+    try {
+      const faqsRef = ref(database, 'faqs');
+      const snapshot = await get(faqsRef);
+      
+      if (snapshot.exists()) {
+        const faqsData = snapshot.val();
+        const faqsArray = Object.keys(faqsData).map(key => ({
+          id: key,
+          ...faqsData[key]
+        }));
+        setFaqs(faqsArray);
+      } else {
+        setFaqs([]);
+      }
+    } catch (error) {
+      console.error('Error loading FAQs:', error);
+      toast.error('Failed to load FAQs');
+    }
+  };
+
+  const toggleFaq = (faqId) => {
+    const newExpanded = new Set(expandedFaqs);
+    if (newExpanded.has(faqId)) {
+      newExpanded.delete(faqId);
+    } else {
+      newExpanded.add(faqId);
+    }
+    setExpandedFaqs(newExpanded);
+  };
+
+  const handleAddFaq = async () => {
+    if (!newFaq.question.trim() || !newFaq.answer.trim()) {
+      toast.error('Please fill in both question and answer');
+      return;
+    }
+
+    try {
+      const faqsRef = ref(database, 'faqs');
+      const newFaqRef = await push(faqsRef, {
+        question: newFaq.question.trim(),
+        answer: newFaq.answer.trim(),
+        isDefault: false,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.email
+      });
+
+      const addedFaq = {
+        id: newFaqRef.key,
+        question: newFaq.question.trim(),
+        answer: newFaq.answer.trim(),
+        isDefault: false,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.email
+      };
+
+      setFaqs(prev => [...prev, addedFaq]);
+      setNewFaq({ question: '', answer: '' });
+      setIsAddingFaq(false);
+      toast.success('FAQ added successfully');
+    } catch (error) {
+      console.error('Error adding FAQ:', error);
+      toast.error('Failed to add FAQ');
+    }
+  };
+
+  const handleEditFaq = async (faq) => {
+    if (!editingFaq.question.trim() || !editingFaq.answer.trim()) {
+      toast.error('Please fill in both question and answer');
+      return;
+    }
+
+    try {
+      const faqRef = ref(database, `faqs/${faq.id}`);
+      await update(faqRef, {
+        question: editingFaq.question.trim(),
+        answer: editingFaq.answer.trim(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser.email
+      });
+
+      setFaqs(prev => prev.map(f => 
+        f.id === faq.id 
+          ? { ...f, question: editingFaq.question.trim(), answer: editingFaq.answer.trim() }
+          : f
+      ));
+      setEditingFaq(null);
+      toast.success('FAQ updated successfully');
+    } catch (error) {
+      console.error('Error updating FAQ:', error);
+      toast.error('Failed to update FAQ');
+    }
+  };
+
+  const handleDeleteFaq = async (faq) => {
+    if (faq.isDefault) {
+      toast.error('Cannot delete default FAQs');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this FAQ?')) {
+      return;
+    }
+
+    try {
+      const faqRef = ref(database, `faqs/${faq.id}`);
+      await remove(faqRef);
+
+      setFaqs(prev => prev.filter(f => f.id !== faq.id));
+      toast.success('FAQ deleted successfully');
+    } catch (error) {
+      console.error('Error deleting FAQ:', error);
+      toast.error('Failed to delete FAQ');
+    }
+  };
+
+  const startEditingFaq = (faq) => {
+    setEditingFaq({ ...faq });
+  };
+
+  const cancelEditingFaq = () => {
+    setEditingFaq(null);
+  };
+
   const totalInquiries = inquiries.length;
   const pendingInquiries = inquiries.filter(inq => inq.status === 'pending').length;
   const activeAgents = agents.filter(agent => agent.isActive !== false).length;
@@ -766,6 +945,7 @@ const AdminDashboard = () => {
                  { id: 'agents', name: 'Agents', icon: Users },
                  { id: 'universities', name: 'Universities', icon: Building },
                  { id: 'users', name: 'User Management', icon: UserPlus },
+                 { id: 'faqs', name: 'FAQ Management', icon: HelpCircle },
                  { id: 'company', name: 'Company Profile', icon: Settings }
                ].map((tab) => (
               <button
@@ -878,19 +1058,16 @@ const AdminDashboard = () => {
                         Student
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Course
+                        Messages
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Agent
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Message
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
+                        Last Activity
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -925,52 +1102,71 @@ const AdminDashboard = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {inquiry.courseInterested}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            {inquiry.agentReferralKey ? (
-                              (() => {
-                                const agent = agents.find(agent => agent.referralKey === inquiry.agentReferralKey);
-                                return agent ? (
-                                  <>
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {agent.name}
-                                    </div>
-                                    <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">
-                                      {inquiry.agentReferralKey}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="text-sm text-gray-500">
-                                      Unknown Agent
-                                    </div>
-                                    <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">
-                                      {inquiry.agentReferralKey}
-                                    </div>
-                                  </>
-                                );
-                              })()
+                        <td className="px-6 py-4">
+                          <div className="space-y-2">
+                            {inquiry.messages && inquiry.messages.length > 0 ? (
+                              <div>
+                                <div className="text-sm text-gray-600 mb-2">
+                                  {(() => {
+                                    const lastMessage = inquiry.messages[inquiry.messages.length - 1];
+                                    const lastMessageTime = new Date(lastMessage.submittedAt);
+                                    const now = new Date();
+                                    const diffInHours = (now - lastMessageTime) / (1000 * 60 * 60);
+                                    const diffInDays = diffInHours / 24;
+                                    
+                                    if (diffInDays >= 7) {
+                                      return `Last message: ${lastMessageTime.toLocaleDateString()}`;
+                                    } else if (diffInDays >= 1) {
+                                      const days = Math.floor(diffInDays);
+                                      return `Last message: ${days} day${days > 1 ? 's' : ''} ago`;
+                                    } else if (diffInHours >= 1) {
+                                      const hours = Math.floor(diffInHours);
+                                      return `Last message: ${hours} hour${hours > 1 ? 's' : ''} ago`;
+                                    } else {
+                                      const minutes = Math.floor((now - lastMessageTime) / (1000 * 60));
+                                      return `Last message: ${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+                                    }
+                                  })()}
+                                </div>
+                                <button
+                                  onClick={() => openMessageModal(inquiry)}
+                                  className="inline-flex items-center px-2 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+                                >
+                                  <MessageSquare className="w-3 h-3 mr-1" />
+                                  View All ({inquiry.messages.length} message{inquiry.messages.length > 1 ? 's' : ''})
+                                </button>
+                              </div>
                             ) : (
-                              <div className="text-sm text-gray-500">
-                                Direct Inquiry
+                              <div className="text-sm text-gray-400">
+                                No messages
                               </div>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            {inquiry.message ? (
-                              <div className="text-sm text-gray-600 max-w-xs truncate" title={inquiry.message}>
-                                {inquiry.message}
-                              </div>
+                            {inquiry.messages && inquiry.messages.length > 0 ? (
+                              (() => {
+                                const lastMessage = inquiry.messages[inquiry.messages.length - 1];
+                                const agent = agents.find(agent => agent.referralKey === lastMessage.agentReferralKey);
+                                return lastMessage.agentReferralKey ? (
+                                  <>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {agent ? agent.name : 'Unknown Agent'}
+                                    </div>
+                                    <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">
+                                      {lastMessage.agentReferralKey}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-sm text-gray-500">
+                                    Direct Inquiry
+                                  </div>
+                                );
+                              })()
                             ) : (
-                              <div className="text-sm text-gray-400">
-                                No message
+                              <div className="text-sm text-gray-500">
+                                No agent
                               </div>
                             )}
                           </div>
@@ -979,7 +1175,10 @@ const AdminDashboard = () => {
                           {getStatusBadge(inquiry.status)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(inquiry.createdAt).toLocaleDateString()}
+                          {inquiry.lastMessageAt ? 
+                            new Date(inquiry.lastMessageAt).toLocaleDateString() :
+                            new Date(inquiry.createdAt).toLocaleDateString()
+                          }
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <select
@@ -1723,6 +1922,195 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {activeTab === 'faqs' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">FAQ Management</h2>
+                {!isAddingFaq && (
+                  <button
+                    onClick={() => setIsAddingFaq(true)}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Plus size={20} />
+                    Add New FAQ
+                  </button>
+                )}
+              </div>
+
+              {/* Add New FAQ Form */}
+              {isAddingFaq && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border border-blue-100">
+                  <div className="grid grid-cols-1 gap-6">
+                    <div>
+                      <label className="block text-base font-semibold text-gray-700 mb-3">
+                        Question *
+                      </label>
+                      <textarea
+                        value={newFaq.question}
+                        onChange={(e) => setNewFaq(prev => ({ ...prev, question: e.target.value }))}
+                        className="input-field w-full text-base"
+                        rows="3"
+                        placeholder="Enter a clear and specific question..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-base font-semibold text-gray-700 mb-3">
+                        Answer *
+                      </label>
+                      <textarea
+                        value={newFaq.answer}
+                        onChange={(e) => setNewFaq(prev => ({ ...prev, answer: e.target.value }))}
+                        className="input-field w-full text-base"
+                        rows="6"
+                        placeholder="Provide a comprehensive and helpful answer..."
+                      />
+                    </div>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={handleAddFaq}
+                        className="btn-primary flex items-center gap-2 px-6 py-2 text-base"
+                      >
+                        <Save size={18} />
+                        Save FAQ
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsAddingFaq(false);
+                          setNewFaq({ question: '', answer: '' });
+                        }}
+                        className="btn-secondary flex items-center gap-2 px-6 py-2 text-base"
+                      >
+                        <X size={18} />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* FAQs List */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {faqs.map((faq) => (
+                  <div key={faq.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+                    <div className="p-8">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <HelpCircle className="w-5 h-5 text-primary-600" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                {editingFaq?.id === faq.id ? (
+                                  <textarea
+                                    value={editingFaq.question}
+                                    onChange={(e) => setEditingFaq(prev => ({ ...prev, question: e.target.value }))}
+                                    className="input-field w-full text-base"
+                                    rows="2"
+                                  />
+                                ) : (
+                                  faq.question
+                                )}
+                              </h3>
+                            </div>
+                            <button
+                              onClick={() => toggleFaq(faq.id)}
+                              className="text-gray-400 hover:text-primary-600 transition-colors p-2 rounded-full hover:bg-primary-50"
+                            >
+                              {expandedFaqs.has(faq.id) ? (
+                                <ChevronUp size={24} />
+                              ) : (
+                                <ChevronDown size={24} />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Admin Actions */}
+                          {!editingFaq && (
+                            <div className="flex items-center gap-3 mt-4">
+                              <button
+                                onClick={() => startEditingFaq(faq)}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                              >
+                                <Edit size={16} />
+                                Edit
+                              </button>
+                              {!faq.isDefault && (
+                                <button
+                                  onClick={() => handleDeleteFaq(faq)}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 size={16} />
+                                  Delete
+                                </button>
+                              )}
+                              {faq.isDefault && (
+                                <span className="text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-full font-medium">
+                                  Default FAQ
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Edit Actions */}
+                          {editingFaq?.id === faq.id && (
+                            <div className="flex items-center gap-3 mt-4">
+                              <button
+                                onClick={() => handleEditFaq(faq)}
+                                className="btn-primary text-xs flex items-center gap-2 px-3 py-1"
+                              >
+                                <Save size={14} />
+                                Save Changes
+                              </button>
+                              <button
+                                onClick={cancelEditingFaq}
+                                className="btn-secondary text-xs flex items-center gap-2 px-3 py-1"
+                              >
+                                <X size={14} />
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* FAQ Answer */}
+                      {expandedFaqs.has(faq.id) && (
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                          {editingFaq?.id === faq.id ? (
+                            <textarea
+                              value={editingFaq.answer}
+                              onChange={(e) => setEditingFaq(prev => ({ ...prev, answer: e.target.value }))}
+                              className="input-field w-full text-base"
+                              rows="6"
+                            />
+                          ) : (
+                            <div className="prose prose-gray max-w-none">
+                              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-base">
+                                {faq.answer}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Empty State */}
+              {faqs.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    <HelpCircle className="mx-auto h-12 w-12" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No FAQs Available</h3>
+                  <p className="text-gray-600">No frequently asked questions have been added yet.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'company' && (
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -1828,6 +2216,13 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Message Modal */}
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={closeMessageModal}
+        inquiry={messageModal.inquiry}
+      />
     </div>
   );
 };

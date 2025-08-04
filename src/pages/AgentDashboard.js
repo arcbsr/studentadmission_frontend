@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { database } from '../firebase/config';
 import { ref, get, onValue } from 'firebase/database';
-import { Users, DollarSign, Copy, CheckCircle, Clock, XCircle, Search } from 'lucide-react';
+import { Users, DollarSign, Copy, CheckCircle, Clock, XCircle, Search, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
+import MessageModal from '../components/MessageModal';
 
 const AgentDashboard = () => {
   const { currentUser } = useAuth();
@@ -13,6 +14,7 @@ const AgentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [messageModal, setMessageModal] = useState({ isOpen: false, inquiry: null });
 
   useEffect(() => {
     const fetchAgentData = async () => {
@@ -61,9 +63,16 @@ const AgentDashboard = () => {
           if (snapshot.exists()) {
             const inquiries = snapshot.val();
             const agentReferrals = Object.entries(inquiries)
-              .filter(([id, inquiry]) => 
-                inquiry.agentReferralKey === agentInfo?.referralKey
-              )
+              .filter(([id, inquiry]) => {
+                // Check if any message in the inquiry has this agent's referral key
+                if (inquiry.messages && Array.isArray(inquiry.messages)) {
+                  return inquiry.messages.some(message => 
+                    message.agentReferralKey === agentInfo?.referralKey
+                  );
+                }
+                // Fallback for legacy inquiries that might have agentReferralKey at inquiry level
+                return inquiry.agentReferralKey === agentInfo?.referralKey;
+              })
               .map(([id, inquiry]) => ({
                 id,
                 ...inquiry
@@ -93,11 +102,26 @@ const AgentDashboard = () => {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(referral =>
-        referral.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        referral.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        referral.courseInterested?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter(referral => {
+        const searchLower = searchTerm.toLowerCase();
+        
+        // Check basic fields
+        const basicMatch = 
+          referral.fullName?.toLowerCase().includes(searchLower) ||
+          referral.email?.toLowerCase().includes(searchLower);
+        
+        if (basicMatch) return true;
+        
+        // Check course information in messages
+        if (referral.messages && Array.isArray(referral.messages)) {
+          return referral.messages.some(message => 
+            message.courseInterested?.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        // Fallback for legacy inquiries
+        return referral.courseInterested?.toLowerCase().includes(searchLower);
+      });
     }
 
     // Filter by status
@@ -145,6 +169,14 @@ const AgentDashboard = () => {
           </span>
         );
     }
+  };
+
+  const openMessageModal = (inquiry) => {
+    setMessageModal({ isOpen: true, inquiry });
+  };
+
+  const closeMessageModal = () => {
+    setMessageModal({ isOpen: false, inquiry: null });
   };
 
   const totalReferrals = referrals.length;
@@ -331,6 +363,9 @@ const AgentDashboard = () => {
                       Course
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Messages
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -371,7 +406,56 @@ const AgentDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {referral.courseInterested}
+                          {(() => {
+                            // Get course from the latest message that has course information
+                            if (referral.messages && Array.isArray(referral.messages)) {
+                              const latestMessage = referral.messages[referral.messages.length - 1];
+                              return latestMessage?.courseInterested || 'Not specified';
+                            }
+                            // Fallback for legacy inquiries
+                            return referral.courseInterested || 'Not specified';
+                          })()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
+                          {referral.messages && referral.messages.length > 0 ? (
+                            <div>
+                              <div className="text-sm text-gray-600 mb-2">
+                                {(() => {
+                                  const lastMessage = referral.messages[referral.messages.length - 1];
+                                  const lastMessageTime = new Date(lastMessage.submittedAt);
+                                  const now = new Date();
+                                  const diffInHours = (now - lastMessageTime) / (1000 * 60 * 60);
+                                  const diffInDays = diffInHours / 24;
+                                  
+                                  if (diffInDays >= 7) {
+                                    return `Last message: ${lastMessageTime.toLocaleDateString()}`;
+                                  } else if (diffInDays >= 1) {
+                                    const days = Math.floor(diffInDays);
+                                    return `Last message: ${days} day${days > 1 ? 's' : ''} ago`;
+                                  } else if (diffInHours >= 1) {
+                                    const hours = Math.floor(diffInHours);
+                                    return `Last message: ${hours} hour${hours > 1 ? 's' : ''} ago`;
+                                  } else {
+                                    const minutes = Math.floor((now - lastMessageTime) / (1000 * 60));
+                                    return `Last message: ${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+                                  }
+                                })()}
+                              </div>
+                              <button
+                                onClick={() => openMessageModal(referral)}
+                                className="inline-flex items-center px-2 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+                              >
+                                <MessageSquare className="w-3 h-3 mr-1" />
+                                View All ({referral.messages.length} message{referral.messages.length > 1 ? 's' : ''})
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-400">
+                              No messages
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -391,6 +475,13 @@ const AgentDashboard = () => {
           )}
         </div>
       </div>
+      
+      {/* Message Modal */}
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={closeMessageModal}
+        inquiry={messageModal.inquiry}
+      />
     </div>
   );
 };

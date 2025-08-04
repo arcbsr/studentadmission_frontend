@@ -25,6 +25,10 @@
     "test-connection": {
       ".read": true,
       ".write": true
+    },
+    "faqs": {
+      ".read": true,
+      ".write": true
     }
   }
 } 
