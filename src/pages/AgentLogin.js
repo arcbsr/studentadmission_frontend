@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import toast from 'react-hot-toast';
-import { Mail, Lock, Shield, Users, TrendingUp, ArrowRight, Home } from 'lucide-react';
+import { Mail, Lock, Shield, Users, TrendingUp, ArrowRight, Home, UserPlus } from 'lucide-react';
 
 const AgentLogin = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { companyInfo } = useCompany();
   const navigate = useNavigate();
   
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -19,8 +21,14 @@ const AgentLogin = () => {
       toast.success('Login successful!');
       navigate('/agent/dashboard');
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Login failed. Please check your credentials.');
+      // Handle login error with specific messages
+      if (error.message && error.message.includes('disabled')) {
+        toast.error('Your account has been disabled by the administrator. Please contact the administrator for assistance.');
+      } else if (error.message && error.message.includes('blocked')) {
+        toast.error('Your account has been blocked. Please contact the administrator for assistance.');
+      } else {
+        toast.error('Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -98,15 +106,43 @@ const AgentLogin = () => {
             <div className="mt-12 p-6 bg-white bg-opacity-10 rounded-lg">
               <h4 className="text-lg font-semibold mb-2">Need an Agent Account?</h4>
               <p className="text-primary-100 mb-4">
-                Contact our administration team to set up your agent account and start earning commissions.
+                {companyInfo.agentRegistrationEnabled 
+                  ? 'You can register for an agent account directly or contact our administration team for assistance.'
+                  : 'Contact our administration team to set up your agent account and start earning commissions.'
+                }
               </p>
-              <Link 
-                to="/contact" 
-                className="inline-flex items-center text-white hover:text-primary-100 transition-colors"
-              >
-                Contact Admin
-                <ArrowRight size={16} className="ml-2" />
-              </Link>
+              <p className="text-primary-100 mb-4 text-sm">
+                If your account has been disabled or you're having login issues, please contact our administrator for assistance.
+              </p>
+              {companyInfo.agentRegistrationEnabled ? (
+                <div className="space-y-3">
+                  <Link 
+                    to="/agent/register" 
+                    className="inline-flex items-center text-white hover:text-primary-100 transition-colors"
+                  >
+                    <UserPlus size={16} className="mr-2" />
+                    Register as Agent
+                  </Link>
+                  <div className="text-primary-200 text-sm">
+                    or
+                  </div>
+                  <Link 
+                    to="/contact" 
+                    className="inline-flex items-center text-white hover:text-primary-100 transition-colors"
+                  >
+                    Contact Admin
+                    <ArrowRight size={16} className="ml-2" />
+                  </Link>
+                </div>
+              ) : (
+                <Link 
+                  to="/contact" 
+                  className="inline-flex items-center text-white hover:text-primary-100 transition-colors"
+                >
+                  Contact Admin
+                  <ArrowRight size={16} className="ml-2" />
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -170,6 +206,34 @@ const AgentLogin = () => {
                   )}
                 </div>
 
+                {/* Account Blocked Message */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Shield className="h-5 w-5 text-yellow-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">
+                        Having trouble logging in?
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <p>
+                          If your account has been disabled, blocked, or you're having login issues, please contact our administrator for assistance.
+                        </p>
+                      </div>
+                      <div className="mt-3">
+                        <Link 
+                          to="/contact" 
+                          className="inline-flex items-center text-sm font-medium text-yellow-800 hover:text-yellow-900"
+                        >
+                          Contact Administrator
+                          <ArrowRight size={16} className="ml-1" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <button
                     type="submit"
@@ -193,13 +257,35 @@ const AgentLogin = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     Don't have an agent account?
                   </p>
-                  <Link 
-                    to="/contact" 
-                    className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium transition-colors"
-                  >
-                    Contact Administrator
-                    <ArrowRight size={16} className="ml-1" />
-                  </Link>
+                  {companyInfo.agentRegistrationEnabled ? (
+                    <div className="space-y-3">
+                      <Link 
+                        to="/agent/register" 
+                        className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                      >
+                        <UserPlus size={16} className="mr-1" />
+                        Register as Agent
+                      </Link>
+                      <div className="text-gray-400 text-xs">
+                        or
+                      </div>
+                      <Link 
+                        to="/contact" 
+                        className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                      >
+                        Contact Administrator
+                        <ArrowRight size={16} className="ml-1" />
+                      </Link>
+                    </div>
+                  ) : (
+                    <Link 
+                      to="/contact" 
+                      className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                    >
+                      Contact Administrator
+                      <ArrowRight size={16} className="ml-1" />
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>

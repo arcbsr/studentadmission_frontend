@@ -91,9 +91,8 @@ const FAQ = () => {
         setFaqs(defaultFaqs);
       }
     } catch (error) {
-      console.error('Error loading FAQs:', error);
+      // Handle FAQ loading error silently
       toast.error('Failed to load FAQs');
-      setFaqs(defaultFaqs);
     } finally {
       setLoading(false);
     }
@@ -111,7 +110,7 @@ const FAQ = () => {
         });
       }
     } catch (error) {
-      console.error('Error initializing default FAQs:', error);
+      // Handle FAQ initialization error silently
     }
   };
 
@@ -155,7 +154,7 @@ const FAQ = () => {
       setIsAdding(false);
       toast.success('FAQ added successfully');
     } catch (error) {
-      console.error('Error adding FAQ:', error);
+      // Handle FAQ adding error silently
       toast.error('Failed to add FAQ');
     }
   };
@@ -183,7 +182,7 @@ const FAQ = () => {
       setEditingFaq(null);
       toast.success('FAQ updated successfully');
     } catch (error) {
-      console.error('Error updating FAQ:', error);
+      // Handle FAQ updating error silently
       toast.error('Failed to update FAQ');
     }
   };
@@ -205,7 +204,7 @@ const FAQ = () => {
       setFaqs(prev => prev.filter(f => f.id !== faq.id));
       toast.success('FAQ deleted successfully');
     } catch (error) {
-      console.error('Error deleting FAQ:', error);
+      // Handle FAQ deleting error silently
       toast.error('Failed to delete FAQ');
     }
   };

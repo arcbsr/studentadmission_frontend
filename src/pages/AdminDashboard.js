@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
-import { database, auth } from '../firebase/config';
+import { database } from '../firebase/config';
 import { ref, update, onValue, push, set, remove, get } from 'firebase/database';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+
+
 import { 
   Users, 
   Settings, 
@@ -24,7 +25,6 @@ import {
   UserX,
   Copy,
   Search,
-  Check,
   MessageSquare,
   HelpCircle,
   ChevronUp,
@@ -33,12 +33,13 @@ import {
 import toast from 'react-hot-toast';
 import { initializeUniversities } from '../utils/initializeUniversities';
 import { sendStatusUpdateNotification, sendAgentWelcomeEmail } from '../utils/emailService';
+import { createUserInDatabaseOnly } from '../utils/initializeAdmin';
 import MessageModal from '../components/MessageModal';
 
 const AdminDashboard = () => {
   const { currentUser, userRole, userData, isSuperAdmin } = useAuth();
   const { companyInfo, updateCompanyInfo } = useCompany();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('inquiries');
   const [inquiries, setInquiries] = useState([]);
   const [agents, setAgents] = useState([]);
   const [universities, setUniversities] = useState([]);
@@ -59,9 +60,7 @@ const AdminDashboard = () => {
   const [filteredUniversities, setFilteredUniversities] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   
-  // Commission editing state
-  const [editingCommission, setEditingCommission] = useState(null);
-  const [commissionValue, setCommissionValue] = useState('');
+
   
   // Message modal state
   const [messageModal, setMessageModal] = useState({ isOpen: false, inquiry: null });
@@ -87,9 +86,11 @@ const AdminDashboard = () => {
   const [userForm, setUserForm] = useState({
     name: '',
     email: '',
+    phone: '',
+    country: '',
     password: '',
     role: 'agent',
-    isActive: true,
+    referralKey: '',
     commissionPerReferral: 0
   });
 
@@ -117,6 +118,8 @@ const AdminDashboard = () => {
                 messages: [{
                   message: inquiry.message,
                   courseInterested: inquiry.courseInterested,
+                  country: inquiry.country,
+                  university: inquiry.university,
                   agentReferralKey: inquiry.agentReferralKey,
                   agentInfo: inquiry.agentInfo,
                   submittedAt: inquiry.createdAt
@@ -158,6 +161,8 @@ const AdminDashboard = () => {
                 id,
                 name: user.name,
                 email: user.email,
+                phone: user.phone,
+                country: user.country,
                 referralKey: user.referralKey,
                 commissionPerReferral: user.commissionPerReferral,
                 isActive: user.isActive,
@@ -168,20 +173,24 @@ const AdminDashboard = () => {
             // Combine agents from both tables, prioritizing agents table
             const agentsMap = new Map();
             
-            // First, add agents from agents table
+            // First, add agents from agents table (only if they have a referralKey)
             agentsList.forEach(agent => {
-              agentsMap.set(agent.referralKey, {
-                ...agent,
-                sourceTable: 'agents'
-              });
-            });
-            
-            // Then, add agents from users table (only if not already in agents table)
-            userAgents.forEach(agent => {
-              if (!agentsMap.has(agent.referralKey)) {
+              if (agent.referralKey && agent.name && agent.email) {
                 agentsMap.set(agent.referralKey, {
                   ...agent,
-                  sourceTable: 'users'
+                  sourceTable: 'agents',
+                  firebaseKey: agent.id // Store the Firebase key for updates
+                });
+              }
+            });
+            
+            // Then, add agents from users table (only if not already in agents table and have valid data)
+            userAgents.forEach(agent => {
+              if (agent.referralKey && agent.name && agent.email && !agentsMap.has(agent.referralKey)) {
+                agentsMap.set(agent.referralKey, {
+                  ...agent,
+                  sourceTable: 'users',
+                  firebaseKey: agent.id // Store the Firebase key for updates
                 });
               }
             });
@@ -315,75 +324,21 @@ const AdminDashboard = () => {
       // Send status update email to student
       try {
         await sendStatusUpdateNotification(inquiry, newStatus, inquiry.agentInfo);
-        console.log('Status update email sent to student');
-      } catch (emailError) {
-        console.error('Failed to send status update email:', emailError);
-        // Don't fail the status update if email fails
-      }
+                } catch (emailError) {
+            // Failed to send status update email - handled silently
+          }
 
       toast.success('Inquiry status updated successfully! Email notification sent.');
     } catch (error) {
-      console.error('Error updating inquiry status:', error);
       toast.error('Failed to update inquiry status.');
     }
   };
 
-  const updateAgentCommission = async (agentId, commission) => {
-    try {
-      // Find the agent to determine which table to update
-      const agent = agents.find(a => a.id === agentId);
-      
-      if (!agent) {
-        toast.error('Agent not found!');
-        return;
-      }
-      
-      console.log('Updating commission for agent:', agent.name, 'in table:', agent.sourceTable, 'ID:', agentId);
-      
-      // Update based on source table
-      if (agent.sourceTable === 'agents') {
-        await update(ref(database, `agents/${agentId}`), {
-          commissionPerReferral: commission,
-          updatedAt: Date.now()
-        });
-        console.log('Updated in agents table');
-      } else {
-        await update(ref(database, `users/${agentId}`), {
-          commissionPerReferral: commission,
-          updatedAt: Date.now()
-        });
-        console.log('Updated in users table');
-      }
-      
-      toast.success('Agent commission updated successfully!');
-    } catch (error) {
-      console.error('Error updating agent commission:', error);
-      toast.error('Failed to update agent commission.');
-    }
-  };
 
-  const startEditCommission = (agent) => {
-    setEditingCommission(agent.id);
-    setCommissionValue(agent.commissionPerReferral || 0);
-  };
 
-  const saveCommission = async () => {
-    if (editingCommission && commissionValue !== '') {
-      console.log('Saving commission:', commissionValue, 'for agent ID:', editingCommission);
-      console.log('Current agents state:', agents);
-      const agent = agents.find(a => a.id === editingCommission);
-      console.log('Found agent:', agent);
-      
-      await updateAgentCommission(editingCommission, parseFloat(commissionValue));
-      setEditingCommission(null);
-      setCommissionValue('');
-    }
-  };
 
-  const cancelEditCommission = () => {
-    setEditingCommission(null);
-    setCommissionValue('');
-  };
+
+
 
   const openMessageModal = (inquiry) => {
     setMessageModal({ isOpen: true, inquiry });
@@ -393,18 +348,7 @@ const AdminDashboard = () => {
     setMessageModal({ isOpen: false, inquiry: null });
   };
 
-  const toggleAgentStatus = async (agentId, isActive) => {
-    try {
-      await update(ref(database, `agents/${agentId}`), {
-        isActive: !isActive,
-        updatedAt: Date.now()
-      });
-      toast.success(`Agent ${isActive ? 'disabled' : 'enabled'} successfully!`);
-    } catch (error) {
-      console.error('Error updating agent status:', error);
-      toast.error('Failed to update agent status.');
-    }
-  };
+
 
   const saveUniversity = async () => {
     try {
@@ -440,7 +384,6 @@ const AdminDashboard = () => {
         isActive: true
       });
     } catch (error) {
-      console.error('Error saving university:', error);
       toast.error('Failed to save university.');
     }
   };
@@ -450,10 +393,9 @@ const AdminDashboard = () => {
       try {
         await remove(ref(database, `universities/${universityId}`));
         toast.success('University deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting university:', error);
-        toast.error('Failed to delete university.');
-      }
+          } catch (error) {
+      toast.error('Failed to delete university.');
+    }
     }
   };
 
@@ -479,7 +421,6 @@ const AdminDashboard = () => {
       setEditingCompany(false);
       toast.success('Company information updated successfully!');
     } catch (error) {
-      console.error('Error updating company info:', error);
       toast.error('Failed to update company information.');
     }
   };
@@ -518,10 +459,12 @@ const AdminDashboard = () => {
 
   // User management functions
   const generateReferralKey = () => {
-    const prefix = 'AGT-RNB';
-    const randomNum = Math.floor(Math.random() * 9000) + 1000;
+    const prefix = 'AGENT';
+    const randomNum = Math.floor(Math.random() * 900000) + 100000;
     return `${prefix}${randomNum}`;
   };
+
+
 
   const saveUser = async () => {
     try {
@@ -530,33 +473,67 @@ const AdminDashboard = () => {
         return;
       }
 
+      // Validate password requirements
+      if (!editingUser && (!userForm.password || userForm.password.length < 6)) {
+        toast.error('Password must be at least 6 characters long.');
+        return;
+      }
+
       if (editingUser) {
         // Update existing user
-        await update(ref(database, `users/${editingUser.id}`), {
+        const updateData = {
           name: userForm.name,
           email: userForm.email,
+          phone: userForm.phone,
+          country: userForm.country,
           role: userForm.role,
           isActive: userForm.isActive,
           commissionPerReferral: userForm.role === 'agent' ? userForm.commissionPerReferral : 0,
           updatedAt: Date.now()
-        });
+        };
+
+        // If password is provided, update it
+        if (userForm.password && userForm.password.length >= 6) {
+          updateData.password = userForm.password;
+        }
+
+        await update(ref(database, `users/${editingUser.id}`), updateData);
+        
+        // If password was changed, also update in agents table
+        if (userForm.password && userForm.password.length >= 6) {
+          await changeUserPassword(editingUser.id, userForm.password);
+        }
+        
+        // If editing an agent, also update the agents table
+        if (userForm.role === 'agent' && editingUser.referralKey) {
+          const agentUpdateData = {
+            name: userForm.name,
+            email: userForm.email,
+            phone: userForm.phone,
+            country: userForm.country,
+            commissionPerReferral: userForm.commissionPerReferral,
+            isActive: userForm.isActive,
+            updatedAt: Date.now()
+          };
+
+          // If password is provided, update it in agents table too
+          if (userForm.password && userForm.password.length >= 6) {
+            agentUpdateData.password = userForm.password;
+          }
+
+          await update(ref(database, `agents/${editingUser.id}`), agentUpdateData);
+        }
+        
         toast.success('User updated successfully!');
       } else {
-        // Create new user with Firebase Auth
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          userForm.email,
-          userForm.password
-        );
-
-        const newUser = {
-          uid: userCredential.user.uid,
+        // Create new user
+        const userData = {
           name: userForm.name,
           email: userForm.email,
+          phone: userForm.phone,
+          country: userForm.country,
           role: userForm.role,
           isActive: userForm.isActive,
-          createdAt: Date.now(),
-          lastLogin: null,
           permissions: userForm.role === 'super_admin' ? {
             viewAnalytics: true,
             manageUsers: true,
@@ -586,48 +563,48 @@ const AdminDashboard = () => {
         // Add agent-specific data
         if (userForm.role === 'agent') {
           const referralKey = generateReferralKey();
-          newUser.referralKey = referralKey;
-          newUser.commissionPerReferral = userForm.commissionPerReferral;
-          
-          // Also create entry in agents table for compatibility
+          userData.referralKey = referralKey;
+          userData.commissionPerReferral = userForm.commissionPerReferral;
+        }
+
+        // For agents, create only in agents table initially
+        if (userForm.role === 'agent') {
           const agentData = {
-            uid: userCredential.user.uid,
             name: userForm.name,
             email: userForm.email,
-            phone: '',
+            phone: userForm.phone,
+            country: userForm.country,
             address: '',
-            referralKey: referralKey,
+            referralKey: userData.referralKey,
             commissionPerReferral: userForm.commissionPerReferral,
             totalReferrals: 0,
             isActive: userForm.isActive,
+            password: userForm.password, // Store password temporarily for Firebase Auth creation
             createdAt: Date.now()
           };
           
-          await set(ref(database, `agents/${userCredential.user.uid}`), agentData);
+          // Generate a unique UID for the agent
+          const agentUid = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Save to agents table
+          await set(ref(database, `agents/${agentUid}`), agentData);
           
           // Send welcome email to new agent
           try {
-            await sendAgentWelcomeEmail(agentData);
-            console.log('Welcome email sent to new agent');
+            await sendAgentWelcomeEmail({ ...agentData, uid: agentUid });
           } catch (emailError) {
-            console.error('Failed to send welcome email:', emailError);
-            // Don't fail the user creation if email fails
+            // Failed to send welcome email - handled silently
           }
           
-          toast.success(`Agent created successfully! Referral Key: ${referralKey}. Welcome email sent.`);
+          toast.success(`Agent created successfully! Referral Key: ${userData.referralKey}. Welcome email sent. Firebase Auth account will be created on first login.`);
         } else {
-          toast.success('User created successfully!');
-        }
-
-        // Save to database
-        await set(ref(database, `users/${userCredential.user.uid}`), newUser);
-
-        // Update Firebase Auth profile
-        await updateProfile(userCredential.user, {
-          displayName: userForm.name
-        });
-
-        if (userForm.role !== 'agent') {
+          // For non-agents, use the database-only approach
+          const result = await createUserInDatabaseOnly(userForm.email, userForm.password, userData);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
           toast.success('User created successfully!');
         }
       }
@@ -637,13 +614,14 @@ const AdminDashboard = () => {
       setUserForm({
         name: '',
         email: '',
+        phone: '',
+        country: '',
         password: '',
         role: 'agent',
         isActive: true,
         commissionPerReferral: 0
       });
     } catch (error) {
-      console.error('Error saving user:', error);
       if (error.code === 'auth/email-already-in-use') {
         toast.error('Email already exists. Please use a different email.');
       } else {
@@ -661,7 +639,6 @@ const AdminDashboard = () => {
       await remove(ref(database, `users/${userId}`));
       toast.success('User deleted successfully!');
     } catch (error) {
-      console.error('Error deleting user:', error);
       toast.error('Failed to delete user.');
     }
   };
@@ -674,8 +651,37 @@ const AdminDashboard = () => {
       });
       toast.success(`User ${!isActive ? 'enabled' : 'disabled'} successfully!`);
     } catch (error) {
-      console.error('Error toggling user status:', error);
       toast.error('Failed to update user status.');
+    }
+  };
+
+  const changeUserPassword = async (userId, newPassword) => {
+    try {
+      // Update password in users table
+      await update(ref(database, `users/${userId}`), {
+        password: newPassword,
+        updatedAt: Date.now()
+      });
+
+      // Also update in agents table if it's an agent
+      const agentsRef = ref(database, 'agents');
+      const agentsSnapshot = await get(agentsRef);
+      
+      if (agentsSnapshot.exists()) {
+        const agents = agentsSnapshot.val();
+        const agentEntry = Object.entries(agents).find(([uid, agent]) => uid === userId);
+        
+        if (agentEntry) {
+          await update(ref(database, `agents/${userId}`), {
+            password: newPassword,
+            updatedAt: Date.now()
+          });
+        }
+      }
+
+      toast.success('Password updated successfully!');
+    } catch (error) {
+      toast.error('Failed to update password.');
     }
   };
 
@@ -684,8 +690,11 @@ const AdminDashboard = () => {
     setUserForm({
       name: user.name || '',
       email: user.email || '',
+      phone: user.phone || '',
+      country: user.country || '',
       password: '',
       role: user.role || 'agent',
+      referralKey: user.referralKey || '',
       isActive: user.isActive !== false,
       commissionPerReferral: user.commissionPerReferral || 0
     });
@@ -701,7 +710,6 @@ const AdminDashboard = () => {
         toast.error(result.message);
       }
     } catch (error) {
-      console.error('Error initializing universities:', error);
       toast.error('Failed to initialize universities');
     }
   };
@@ -723,7 +731,6 @@ const AdminDashboard = () => {
         setFaqs([]);
       }
     } catch (error) {
-      console.error('Error loading FAQs:', error);
       toast.error('Failed to load FAQs');
     }
   };
@@ -768,7 +775,6 @@ const AdminDashboard = () => {
       setIsAddingFaq(false);
       toast.success('FAQ added successfully');
     } catch (error) {
-      console.error('Error adding FAQ:', error);
       toast.error('Failed to add FAQ');
     }
   };
@@ -796,7 +802,6 @@ const AdminDashboard = () => {
       setEditingFaq(null);
       toast.success('FAQ updated successfully');
     } catch (error) {
-      console.error('Error updating FAQ:', error);
       toast.error('Failed to update FAQ');
     }
   };
@@ -818,7 +823,6 @@ const AdminDashboard = () => {
       setFaqs(prev => prev.filter(f => f.id !== faq.id));
       toast.success('FAQ deleted successfully');
     } catch (error) {
-      console.error('Error deleting FAQ:', error);
       toast.error('Failed to delete FAQ');
     }
   };
@@ -1201,7 +1205,63 @@ const AdminDashboard = () => {
 
           {activeTab === 'agents' && (
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Agent Management</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Agent Management</h2>
+              </div>
+              
+              {/* Pending Approvals Section */}
+              {agents.filter(agent => agent.needsApproval && !agent.isActive).length > 0 && (
+                <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <span className="text-yellow-600 text-sm font-medium">!</span>
+                      </div>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-lg font-medium text-yellow-800">Pending Agent Approvals</h3>
+                      <p className="text-sm text-yellow-700">
+                        {agents.filter(agent => agent.needsApproval && !agent.isActive).length} agent(s) waiting for approval
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {agents.filter(agent => agent.needsApproval && !agent.isActive).map((agent) => (
+                      <div key={agent.id} className="flex items-center justify-between bg-white rounded-lg p-4 border border-yellow-200">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-sm font-medium text-blue-600">
+                                {agent.name?.charAt(0)?.toUpperCase() || 'A'}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                            <div className="text-sm text-gray-500">{agent.email}</div>
+                            <div className="text-xs text-gray-400">Registered: {new Date(agent.createdAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => toggleUserStatus(agent.id, true)}
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => deleteUser(agent.id)}
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {/* Search Bar */}
               <div className="mb-6">
@@ -1225,123 +1285,81 @@ const AdminDashboard = () => {
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Agent
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Referral Key
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Referrals
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Commission
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
+                                      <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact Info
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Referral Key
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Commission
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Created
+                        </th>
+                      </tr>
+                    </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAgents.map((agent) => {
-                      const agentReferrals = inquiries.filter(inq => 
-                        inq.agentReferralKey === agent.referralKey
-                      );
-                      const admittedReferrals = agentReferrals.filter(ref => ref.status === 'admitted').length;
-                      return (
-                        <tr key={agent.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {agent.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {agent.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {agent.referralKey}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {agentReferrals.length} total, {admittedReferrals} admitted
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {editingCommission === agent.id ? (
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="number"
-                                  value={commissionValue}
-                                  onChange={(e) => setCommissionValue(e.target.value)}
-                                  className="border border-gray-300 rounded-md px-2 py-1 text-sm w-20"
-                                  min="0"
-                                  step="0.01"
-                                />
-                                <span className="text-sm text-gray-500">per referral</span>
-                                <button
-                                  onClick={saveCommission}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Save"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={cancelEditCommission}
-                                  className="text-red-600 hover:text-red-800"
-                                  title="Cancel"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-900">
-                                  ${agent.commissionPerReferral || 0}
+                    {agents.map((agent) => (
+                      <tr key={agent.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span className="text-sm font-medium text-blue-600">
+                                  {agent.name?.charAt(0)?.toUpperCase() || 'A'}
                                 </span>
-                                <span className="text-sm text-gray-500">per referral</span>
-                                <button
-                                  onClick={() => startEditCommission(agent)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                  title="Edit Commission"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
                               </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              agent.isActive !== false 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {agent.isActive !== false ? 'Active' : 'Disabled'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() => toggleAgentStatus(agent.id, agent.isActive !== false)}
-                              className={`px-3 py-1 rounded text-xs ${
-                                agent.isActive !== false
-                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-                              }`}
-                            >
-                              {agent.isActive !== false ? 'Disable' : 'Enable'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {agent.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div>
+                            <div className="text-sm text-gray-900">{agent.phone || 'No phone'}</div>
+                            <div className="text-sm text-gray-500">{agent.country || 'No country'}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {agent.referralKey}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {agent.commissionPerReferral}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            agent.isActive 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {agent.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {agent.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1638,9 +1656,11 @@ const AdminDashboard = () => {
                     setUserForm({
                       name: '',
                       email: '',
+                      phone: '',
+                      country: '',
                       password: '',
                       role: 'agent',
-                      isActive: true,
+                      referralKey: '',
                       commissionPerReferral: 0
                     });
                   }}
@@ -1687,6 +1707,33 @@ const AdminDashboard = () => {
                           />
                         </div>
 
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Phone Number
+                            </label>
+                            <input
+                              type="tel"
+                              value={userForm.phone}
+                              onChange={(e) => setUserForm({...userForm, phone: e.target.value})}
+                              className="input-field"
+                              placeholder="Enter phone number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Country
+                            </label>
+                            <input
+                              type="text"
+                              value={userForm.country}
+                              onChange={(e) => setUserForm({...userForm, country: e.target.value})}
+                              className="input-field"
+                              placeholder="Enter country"
+                            />
+                          </div>
+                        </div>
+
                         {!editingUser && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1699,6 +1746,24 @@ const AdminDashboard = () => {
                               className="input-field"
                               placeholder="Enter password"
                             />
+                          </div>
+                        )}
+
+                        {editingUser && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              New Password (Leave blank to keep current password)
+                            </label>
+                            <input
+                              type="password"
+                              value={userForm.password}
+                              onChange={(e) => setUserForm({...userForm, password: e.target.value})}
+                              className="input-field"
+                              placeholder="Enter new password (optional)"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Minimum 6 characters. Leave blank to keep the current password unchanged.
+                            </p>
                           </div>
                         )}
 
@@ -1721,31 +1786,38 @@ const AdminDashboard = () => {
                           <>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Commission per Referral
+                                Commission Rate (%)
                               </label>
                               <input
                                 type="number"
                                 value={userForm.commissionPerReferral}
                                 onChange={(e) => setUserForm({...userForm, commissionPerReferral: parseFloat(e.target.value) || 0})}
                                 className="input-field"
-                                placeholder="0.00"
-                                step="0.01"
+                                placeholder="0"
+                                step="0.1"
                                 min="0"
+                                max="100"
                               />
+                              <p className="text-xs text-gray-500 mt-1">
+                                Percentage commission per admitted referral
+                              </p>
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Referral Key (Auto-generated)
+                                Referral Key {editingUser ? '(Cannot be changed)' : '(Auto-generated)'}
                               </label>
                               <input
                                 type="text"
-                                value={userForm.role === 'agent' ? generateReferralKey() : ''}
+                                value={editingUser ? (userForm.referralKey || '') : (userForm.role === 'agent' ? generateReferralKey() : '')}
                                 readOnly
                                 className="input-field bg-gray-50 font-mono text-lg"
-                                placeholder="Will be generated automatically"
+                                placeholder={editingUser ? "Existing referral key" : "Will be generated automatically"}
                               />
                               <p className="text-xs text-gray-500 mt-1">
-                                This key will be automatically generated when the agent is created
+                                {editingUser 
+                                  ? 'Referral keys cannot be changed once assigned to maintain data integrity'
+                                  : 'This key will be automatically generated when the agent is created'
+                                }
                               </p>
                             </div>
                           </>
@@ -2210,6 +2282,80 @@ const AdminDashboard = () => {
                     disabled={!editingCompany}
                     className="input-field disabled:bg-gray-50"
                   />
+                </div>
+
+                {/* Agent Registration Settings */}
+                <div className="md:col-span-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Agent Registration Settings</h3>
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <input
+                      type="checkbox"
+                      id="agentRegistrationEnabled"
+                      checked={companyForm.agentRegistrationEnabled || false}
+                      onChange={(e) => setCompanyForm({...companyForm, agentRegistrationEnabled: e.target.checked})}
+                      disabled={!editingCompany}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="agentRegistrationEnabled" className="text-sm font-medium text-gray-700">
+                      Enable Agent Self-Registration
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Allow agents to register themselves through the registration page.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <input
+                      type="checkbox"
+                      id="agentRegistrationRequiresApproval"
+                      checked={companyForm.agentRegistrationRequiresApproval || false}
+                      onChange={(e) => setCompanyForm({...companyForm, agentRegistrationRequiresApproval: e.target.checked})}
+                      disabled={!editingCompany}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="agentRegistrationRequiresApproval" className="text-sm font-medium text-gray-700">
+                      Require Admin Approval for New Agents
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-4">
+                    New agent registrations will require admin approval before they can access the dashboard.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Default Commission Percentage
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={companyForm.agentDefaultCommission || 10}
+                    onChange={(e) => setCompanyForm({...companyForm, agentDefaultCommission: parseInt(e.target.value) || 10})}
+                    disabled={!editingCompany}
+                    className="input-field disabled:bg-gray-50"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Default commission percentage for new agents</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Registration Disabled Message
+                  </label>
+                  <textarea
+                    value={companyForm.agentRegistrationMessage || ''}
+                    onChange={(e) => setCompanyForm({...companyForm, agentRegistrationMessage: e.target.value})}
+                    disabled={!editingCompany}
+                    rows="3"
+                    className="input-field disabled:bg-gray-50"
+                    placeholder="Message shown when registration is disabled"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Message displayed when agent registration is disabled</p>
                 </div>
               </div>
             </div>

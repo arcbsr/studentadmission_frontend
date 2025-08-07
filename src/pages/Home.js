@@ -2,9 +2,19 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCompany } from '../contexts/CompanyContext';
 import { GraduationCap, Globe, Users, Award, ArrowRight, CheckCircle, Shield, TrendingUp } from 'lucide-react';
+import { useNavigationWithScroll } from '../utils/navigation';
 
 const Home = () => {
   const { companyInfo } = useCompany();
+  const { navigateWithScroll } = useNavigationWithScroll();
+
+  const handleApplyNow = () => {
+    navigateWithScroll('/inquiry');
+  };
+
+  const handleExploreUniversities = () => {
+    navigateWithScroll('/universities');
+  };
 
   const features = [
     {
@@ -54,13 +64,19 @@ const Home = () => {
                 Start your international academic journey with expert guidance and comprehensive support.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/inquiry" className="btn-primary text-lg px-8 py-3 inline-flex items-center">
+                <button 
+                  onClick={handleApplyNow}
+                  className="btn-primary text-lg px-8 py-3 inline-flex items-center"
+                >
                   Apply Now
                   <ArrowRight className="ml-2 w-5 h-5" />
-                </Link>
-                <Link to="/universities" className="btn-secondary text-lg px-8 py-3">
+                </button>
+                <button 
+                  onClick={handleExploreUniversities}
+                  className="btn-secondary text-lg px-8 py-3"
+                >
                   Explore Universities
-                </Link>
+                </button>
               </div>
             </div>
             <div className="hidden lg:block">

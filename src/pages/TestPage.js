@@ -1,192 +1,136 @@
-import React, { useState } from 'react';
-import { initializeUniversities } from '../utils/initializeUniversities';
-import { testUniversities } from '../utils/testUniversities';
-import { manualInitialize } from '../utils/manualInitialize';
-import { database } from '../firebase/config';
-import { ref, get } from 'firebase/database';
+import React, { useState, useEffect } from 'react';
+import { database, auth } from '../firebase/config';
+import { ref, get, set } from 'firebase/database';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const TestPage = () => {
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState([]);
+  const [testResults, setTestResults] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  const addResult = (message, type = 'info') => {
-    setResults(prev => [...prev, { message, type, timestamp: new Date().toLocaleTimeString() }]);
-  };
+  useEffect(() => {
+    runTests();
+  }, []);
 
-  const testFirebaseConnection = async () => {
-    setLoading(true);
-    addResult('Testing Firebase connection...', 'info');
-    
+  const runTests = async () => {
+    const results = {};
+
+    // Test 1: Firebase Auth State
     try {
-      const testRef = ref(database, 'test-connection');
-      await get(testRef);
-      addResult('✅ Firebase connection successful', 'success');
+      await new Promise((resolve, reject) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          unsubscribe();
+          results.authState = {
+            success: true,
+            message: user ? `User authenticated: ${user.email}` : 'No user authenticated'
+          };
+          resolve();
+        }, (error) => {
+          results.authState = {
+            success: false,
+            message: `Auth state error: ${error.message}`
+          };
+          reject(error);
+        });
+      });
     } catch (error) {
-      addResult(`❌ Firebase connection failed: ${error.message}`, 'error');
+      results.authState = {
+        success: false,
+        message: `Auth state error: ${error.message}`
+      };
     }
-    setLoading(false);
-  };
 
-  const initializeUnis = async () => {
-    setLoading(true);
-    addResult('Initializing universities...', 'info');
-    
-    try {
-      const result = await initializeUniversities();
-      if (result.success) {
-        addResult(`✅ ${result.message}`, 'success');
-      } else {
-        addResult(`❌ ${result.message}`, 'error');
-      }
-    } catch (error) {
-      addResult(`❌ Error: ${error.message}`, 'error');
-    }
-    setLoading(false);
-  };
-
-  const manualInit = async () => {
-    setLoading(true);
-    addResult('Manual initialization...', 'info');
-    
-    try {
-      const result = await manualInitialize();
-      if (result.success) {
-        addResult(`✅ ${result.message}`, 'success');
-      } else {
-        addResult(`❌ ${result.message}`, 'error');
-      }
-    } catch (error) {
-      addResult(`❌ Error: ${error.message}`, 'error');
-    }
-    setLoading(false);
-  };
-
-  const testUnis = async () => {
-    setLoading(true);
-    addResult('Testing universities...', 'info');
-    
-    try {
-      const result = await testUniversities();
-      if (result.success) {
-        addResult(`✅ ${result.message}`, 'success');
-      } else {
-        addResult(`❌ ${result.message}`, 'error');
-      }
-    } catch (error) {
-      addResult(`❌ Error: ${error.message}`, 'error');
-    }
-    setLoading(false);
-  };
-
-  const checkDatabase = async () => {
-    setLoading(true);
-    addResult('Checking database structure...', 'info');
-    
+    // Test 2: Database Connection - Public Data
     try {
       const universitiesRef = ref(database, 'universities');
       const snapshot = await get(universitiesRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const count = Object.keys(data).length;
-        addResult(`✅ Found ${count} universities in database`, 'success');
-        
-        // Log first 3 universities
-        Object.entries(data).slice(0, 3).forEach(([id, uni]) => {
-          addResult(`- ${uni.name} (${uni.country})`, 'info');
-        });
-      } else {
-        addResult('❌ No universities found in database', 'error');
-      }
+      results.databasePublic = {
+        success: true,
+        message: snapshot.exists() ? 'Public data accessible' : 'Public data accessible (empty)'
+      };
     } catch (error) {
-      addResult(`❌ Database check failed: ${error.message}`, 'error');
+      results.databasePublic = {
+        success: false,
+        message: `Database public access error: ${error.message}`
+      };
     }
+
+    // Test 3: Database Connection - Company Data
+    try {
+      const companyRef = ref(database, 'company');
+      const snapshot = await get(companyRef);
+      results.databaseCompany = {
+        success: true,
+        message: snapshot.exists() ? 'Company data accessible' : 'Company data accessible (empty)'
+      };
+    } catch (error) {
+      results.databaseCompany = {
+        success: false,
+        message: `Database company access error: ${error.message}`
+      };
+    }
+
+    // Test 4: Test Connection Node
+    try {
+      const testRef = ref(database, 'test-connection');
+      await set(testRef, { timestamp: Date.now(), test: true });
+      results.testConnection = {
+        success: true,
+        message: 'Test connection write successful'
+      };
+    } catch (error) {
+      results.testConnection = {
+        success: false,
+        message: `Test connection error: ${error.message}`
+      };
+    }
+
+    // Test 5: Environment Variables
+    results.environment = {
+      success: true,
+      message: `API Key: ${process.env.REACT_APP_FIREBASE_API_KEY ? 'Set' : 'Missing'}, Database URL: ${process.env.REACT_APP_FIREBASE_DATABASE_URL ? 'Set' : 'Missing'}`
+    };
+
+    setTestResults(results);
     setLoading(false);
   };
+
+  const getStatusColor = (success) => {
+    return success ? 'text-green-600' : 'text-red-600';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Firebase Test Page</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Firebase Connection Test</h1>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Test Functions</h2>
-            <div className="space-y-3">
-              <button
-                onClick={testFirebaseConnection}
-                disabled={loading}
-                className="w-full btn-primary disabled:opacity-50"
-              >
-                Test Firebase Connection
-              </button>
-              
-              <button
-                onClick={initializeUnis}
-                disabled={loading}
-                className="w-full btn-secondary disabled:opacity-50"
-              >
-                Initialize Universities
-              </button>
-              
-              <button
-                onClick={manualInit}
-                disabled={loading}
-                className="w-full btn-secondary disabled:opacity-50"
-              >
-                Manual Initialize (3 Universities)
-              </button>
-              
-              <button
-                onClick={testUnis}
-                disabled={loading}
-                className="w-full btn-secondary disabled:opacity-50"
-              >
-                Test Universities Loading
-              </button>
-              
-              <button
-                onClick={checkDatabase}
-                disabled={loading}
-                className="w-full btn-secondary disabled:opacity-50"
-              >
-                Check Database Structure
-              </button>
+        <div className="grid gap-6">
+          {Object.entries(testResults).map(([testName, result]) => (
+            <div key={testName} className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-2 capitalize">
+                {testName.replace(/([A-Z])/g, ' $1').trim()}
+              </h3>
+              <p className={`${getStatusColor(result.success)}`}>
+                {result.message}
+              </p>
             </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Results</h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {results.map((result, index) => (
-                <div
-                  key={index}
-                  className={`p-2 rounded text-sm ${
-                    result.type === 'success' ? 'bg-green-100 text-green-800' :
-                    result.type === 'error' ? 'bg-red-100 text-red-800' :
-                    'bg-blue-100 text-blue-800'
-                  }`}
-                >
-                  <span className="text-xs text-gray-500">{result.timestamp}</span>
-                  <div>{result.message}</div>
-                </div>
-              ))}
-              {results.length === 0 && (
-                <p className="text-gray-500">No tests run yet. Click a button above to start testing.</p>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Instructions</h2>
-          <ol className="list-decimal list-inside space-y-2 text-gray-700">
-            <li>Click "Test Firebase Connection" to verify Firebase is working</li>
-            <li>Click "Initialize Universities" to add default universities</li>
-            <li>Click "Test Universities Loading" to check if universities are accessible</li>
-            <li>Click "Check Database Structure" to see what's in the database</li>
-            <li>Check the results panel for detailed information</li>
-          </ol>
+
+        <div className="mt-8 bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">Summary</h3>
+          <div className="space-y-2">
+            <p>Total Tests: {Object.keys(testResults).length}</p>
+            <p>Passed: {Object.values(testResults).filter(r => r.success).length}</p>
+            <p>Failed: {Object.values(testResults).filter(r => !r.success).length}</p>
+          </div>
         </div>
       </div>
     </div>

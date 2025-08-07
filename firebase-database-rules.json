@@ -1,34 +1,6 @@
 {
   "rules": {
     ".read": true,
-    ".write": true,
-    "universities": {
-      ".read": true,
-      ".write": true
-    },
-    "users": {
-      ".read": true,
-      ".write": true
-    },
-    "inquiries": {
-      ".read": true,
-      ".write": true
-    },
-    "agents": {
-      ".read": true,
-      ".write": true
-    },
-    "company": {
-      ".read": true,
-      ".write": true
-    },
-    "test-connection": {
-      ".read": true,
-      ".write": true
-    },
-    "faqs": {
-      ".read": true,
-      ".write": true
-    }
+    ".write": true
   }
 } 

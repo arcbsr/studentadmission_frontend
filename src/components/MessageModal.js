@@ -170,6 +170,29 @@ const MessageModal = ({ isOpen, onClose, inquiry }) => {
                             Sent by: {msg.adminEmail}
                           </div>
                         )}
+                        {/* Country and University Information */}
+                        {(msg.country || msg.university) && msg.type !== 'admin_reply' && (
+                          <div className="mt-3 p-2 bg-gray-50 rounded border-l-4 border-primary-200">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Globe className="w-3 h-3 text-primary-600" />
+                              <span className="text-xs font-medium text-primary-700">Academic Preferences</span>
+                            </div>
+                            <div className="space-y-1">
+                              {msg.country && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500">Country:</span>
+                                  <span className="text-xs font-medium text-gray-700">{msg.country}</span>
+                                </div>
+                              )}
+                              {msg.university && (
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500">University:</span>
+                                  <span className="text-xs font-medium text-gray-700">{msg.university}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -209,6 +232,23 @@ const MessageModal = ({ isOpen, onClose, inquiry }) => {
                   })}
                 </p>
               </div>
+              {/* Country and University Preferences */}
+              {(inquiry.country || inquiry.university) && (
+                <>
+                  {inquiry.country && (
+                    <div>
+                      <p className="text-sm text-gray-500">Country of Interest</p>
+                      <p className="font-medium text-gray-900">{inquiry.country}</p>
+                    </div>
+                  )}
+                  {inquiry.university && (
+                    <div>
+                      <p className="text-sm text-gray-500">University of Interest</p>
+                      <p className="font-medium text-gray-900">{inquiry.university}</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

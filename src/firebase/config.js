@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -12,7 +12,6 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_FIREBASE_APP_ID,
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
-  
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -20,5 +19,10 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 export const database = getDatabase(app);
 export const auth = getAuth(app);
+
+// Set persistence to browser local storage (persists across page reloads)
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  // Handle persistence setting error silently
+});
 
 export default app; 

@@ -1,0 +1,53 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": "auth != null",
+    
+    "universities": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    
+    "faqs": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    
+    "company": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "agents": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "inquiries": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$inquiryId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "test-connection": {
+      ".read": true,
+      ".write": "auth != null"
+    }
+  }
+} 

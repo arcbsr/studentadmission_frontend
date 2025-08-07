@@ -26,9 +26,15 @@ A comprehensive web application for managing international student admissions, a
 
 ## 🔐 Admin Access
 
-### Default Super Admin Credentials
-- **Email**: `rnbridge25@gmail.com`
-- **Password**: `Extra@2613`
+### Super Admin Configuration
+The super admin credentials are configured via environment variables:
+
+```bash
+REACT_APP_SUPER_ADMIN_EMAIL=your_super_admin_email@example.com
+REACT_APP_SUPER_ADMIN_PASSWORD=your_super_admin_password_here
+```
+
+**Note**: If environment variables are not set, the system will use default credentials for initialization only. For production, always set these environment variables.
 
 ### User Roles & Permissions
 
@@ -123,22 +129,26 @@ A comprehensive web application for managing international student admissions, a
    cp .env.example .env
    ```
    
-   Update `.env` with your Firebase configuration:
-   ```env
+   Update the `.env` file with your credentials:
+   ```bash
    # Firebase Configuration
-   REACT_APP_FIREBASE_API_KEY=your_api_key_here
+   REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
    REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
    REACT_APP_FIREBASE_DATABASE_URL=https://your_project-default-rtdb.firebaseio.com
    REACT_APP_FIREBASE_PROJECT_ID=your_project_id
-   REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
+   REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
    REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    REACT_APP_FIREBASE_APP_ID=your_app_id
    REACT_APP_FIREBASE_MEASUREMENT_ID=your_measurement_id
-
-   # EmailJS Configuration (for email notifications)
+   
+   # EmailJS Configuration
+   REACT_APP_EMAILJS_USER_ID=your_emailjs_user_id
    REACT_APP_EMAILJS_SERVICE_ID=your_emailjs_service_id
    REACT_APP_EMAILJS_TEMPLATE_ID=your_emailjs_template_id
-   REACT_APP_EMAILJS_USER_ID=your_emailjs_user_id
+   
+   # Super Admin Configuration
+   REACT_APP_SUPER_ADMIN_EMAIL=your_super_admin_email@example.com
+   REACT_APP_SUPER_ADMIN_PASSWORD=your_super_admin_password_here
    ```
 
 4. **Configure EmailJS (Optional but Recommended)**
@@ -198,7 +208,7 @@ src/
 
 4. **Access Admin Panel**
    - Go to `/admin/login`
-   - Use default credentials: `rnbridge25@gmail.com` / `Extra@2613`
+   - Use the credentials configured in your environment variables
 
 ## 🔥 Firebase Database Rules
 

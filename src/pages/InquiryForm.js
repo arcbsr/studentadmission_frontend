@@ -1,22 +1,85 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { database } from '../firebase/config';
-import { ref, push, get, update } from 'firebase/database';
-import { User, MessageSquare, BookOpen } from 'lucide-react';
-
+import { ref, push, get, update, onValue } from 'firebase/database';
+import { User, MessageSquare, BookOpen, Globe } from 'lucide-react';
 
 const InquiryForm = () => {
   const [loading, setLoading] = useState(false);
   const [agentInfo, setAgentInfo] = useState(null);
+  const [countries, setCountries] = useState([]);
+  const [universities, setUniversities] = useState([]);
+  const [filteredUniversities, setFilteredUniversities] = useState([]);
   const navigate = useNavigate();
   
-  const { register, handleSubmit, watch, formState: { errors }, reset } = useForm();
+  const { register, handleSubmit, watch, formState: { errors }, reset, setValue } = useForm();
   const agentReferralKey = watch('agentReferralKey');
+  const selectedCountry = watch('country');
+  const selectedUniversity = watch('university');
+
+  // Manual filtering function with useCallback
+  const filterUniversitiesByCountry = useCallback((country) => {
+    if (country && country.trim() !== '') {
+      const filtered = universities.filter(uni => uni.country === country);
+      setFilteredUniversities(filtered);
+    } else {
+      setFilteredUniversities([]);
+    }
+  }, [universities]);
+
+  // Reset university when country changes
+  useEffect(() => {
+    if (selectedCountry) {
+      setValue('university', '');
+      filterUniversitiesByCountry(selectedCountry);
+    }
+  }, [selectedCountry, setValue, filterUniversitiesByCountry]);
+
+  // Load countries and universities from database
+  useEffect(() => {
+    const universitiesRef = ref(database, 'universities');
+    const unsubscribe = onValue(universitiesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        
+        // Handle different data structures
+        let universitiesList = [];
+        if (Array.isArray(data)) {
+          // If data is an array
+          universitiesList = data
+            .map((university, index) => ({
+              id: index.toString(),
+              ...university
+            }))
+            .filter(uni => uni.isActive !== false);
+        } else {
+          // If data is an object with keys
+          universitiesList = Object.entries(data)
+            .map(([id, university]) => ({
+              id,
+              ...university
+            }))
+            .filter(uni => uni.isActive !== false);
+        }
+        
+        setUniversities(universitiesList);
+        
+        // Extract unique countries and clean them
+        const uniqueCountries = [...new Set(universitiesList.map(uni => uni.country).filter(Boolean))].sort();
+        setCountries(uniqueCountries);
+      } else {
+        setUniversities([]);
+        setCountries([]);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Check agent referral key
-  React.useEffect(() => {
+  useEffect(() => {
     const checkAgentKey = async () => {
       if (agentReferralKey && agentReferralKey.length >= 3) {
         try {
@@ -34,7 +97,8 @@ const InquiryForm = () => {
             }
           }
         } catch (error) {
-          console.error('Error checking agent key:', error);
+          // Handle agent key check error silently
+          setAgentInfo(null);
         }
       } else {
         setAgentInfo(null);
@@ -65,6 +129,8 @@ const InquiryForm = () => {
       const newMessage = {
         message: data.message || 'No message provided',
         courseInterested: data.courseInterested,
+        country: data.country,
+        university: data.university,
         agentReferralKey: data.agentReferralKey || null,
         agentInfo: agentInfo ? {
           name: agentInfo.name,
@@ -98,6 +164,7 @@ const InquiryForm = () => {
           address: data.address,
           country: data.country,
           state: data.state,
+          university: data.university,
           messages: [newMessage],
           status: 'pending',
           createdAt: Date.now(),
@@ -112,7 +179,7 @@ const InquiryForm = () => {
       reset();
       navigate('/');
     } catch (error) {
-      console.error('Error submitting inquiry:', error);
+      // Handle inquiry submission error silently
       toast.error('Failed to submit inquiry. Please try again.');
     } finally {
       setLoading(false);
@@ -206,21 +273,6 @@ const InquiryForm = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Country *
-                  </label>
-                  <input
-                    type="text"
-                    {...register('country', { required: 'Country is required' })}
-                    className="input-field"
-                    placeholder="Enter your country"
-                  />
-                  {errors.country && (
-                    <p className="text-red-500 text-sm mt-1">{errors.country.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     State/Province
                   </label>
                   <input
@@ -241,6 +293,91 @@ const InquiryForm = () => {
                     className="input-field"
                     placeholder="Enter your address"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Country and University Selection */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Globe className="w-5 h-5 mr-2" />
+                Country & University Interest
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Country of Interest *
+                  </label>
+                  <select
+                    {...register('country', { required: 'Please select a country' })}
+                    className="input-field"
+                    value={selectedCountry || ''}
+                    onChange={(e) => {
+                      const newCountry = e.target.value;
+                      setValue('country', newCountry);
+                      setValue('university', '');
+                      if (newCountry) {
+                        filterUniversitiesByCountry(newCountry);
+                      } else {
+                        setFilteredUniversities([]);
+                      }
+                    }}
+                  >
+                    <option value="">Select a country</option>
+                    {countries.map((country, index) => (
+                      <option key={index} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.country && (
+                    <p className="text-red-500 text-sm mt-1">{errors.country.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    University of Interest
+                  </label>
+                  <select
+                    key={selectedCountry || 'no-country'}
+                    {...register('university')}
+                    className="input-field"
+                    disabled={!selectedCountry}
+                    value={selectedUniversity || ''}
+                    onChange={(e) => {
+                      setValue('university', e.target.value);
+                    }}
+                  >
+                    <option value="">
+                      {selectedCountry ? 'Select a university' : 'Select a country first'}
+                    </option>
+                    {filteredUniversities.map((university) => (
+                      <option key={university.id} value={university.name}>
+                        {university.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!selectedCountry && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Please select a country to see available universities
+                    </p>
+                  )}
+                  {selectedCountry && filteredUniversities.length === 0 && (
+                    <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-yellow-800 text-sm">
+                        ⚠️ No universities found for {selectedCountry}
+                      </p>
+                      <p className="text-yellow-700 text-xs mt-1">
+                        We don't have partner universities in this country yet. You can still submit your inquiry and we'll help you find suitable options.
+                      </p>
+                    </div>
+                  )}
+                  {selectedCountry && filteredUniversities.length > 0 && (
+                    <p className="text-sm text-green-600 mt-1">
+                      ✓ Found {filteredUniversities.length} university{filteredUniversities.length > 1 ? 'ies' : ''} in {selectedCountry}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

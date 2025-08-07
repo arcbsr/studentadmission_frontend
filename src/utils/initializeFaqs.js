@@ -1,5 +1,5 @@
 import { database as db } from '../firebase/config';
-import { ref, get, push } from 'firebase/database';
+import { ref, get, push, set } from 'firebase/database';
 
 // Default FAQs for RNBRIDGE Ltd
 const defaultFaqs = [
@@ -47,37 +47,36 @@ const defaultFaqs = [
 
 export const initializeDefaultFaqs = async () => {
   try {
-    console.log('Initializing default FAQs...');
-    
+    // Check if FAQs already exist
     const faqsRef = ref(db, 'faqs');
     const snapshot = await get(faqsRef);
     
     if (snapshot.exists()) {
-      console.log('FAQs already exist in database');
       return {
         success: true,
-        message: 'FAQs already initialized'
+        message: 'FAQs already exist in database'
       };
     }
 
-    // Add default FAQs to database
+    // Create default FAQs
     for (const faq of defaultFaqs) {
-      await push(faqsRef, {
+      const newFaqRef = push(ref(db, 'faqs'));
+      await set(newFaqRef, {
         ...faq,
-        createdAt: new Date().toISOString()
+        isDefault: true,
+        createdAt: new Date().toISOString(),
+        createdBy: 'system'
       });
     }
 
-    console.log('Default FAQs initialized successfully');
     return {
       success: true,
       message: 'Default FAQs initialized successfully'
     };
   } catch (error) {
-    console.error('Error initializing default FAQs:', error);
     return {
       success: false,
-      message: `Failed to initialize FAQs: ${error.message}`
+      message: 'Error initializing default FAQs'
     };
   }
 };
@@ -88,7 +87,6 @@ export const checkFaqsExist = async () => {
     const snapshot = await get(faqsRef);
     return snapshot.exists();
   } catch (error) {
-    console.error('Error checking FAQs:', error);
     return false;
   }
 }; 

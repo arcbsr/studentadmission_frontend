@@ -19,7 +19,7 @@ const AdminLogin = () => {
       toast.success('Admin login successful!');
       navigate('/admin/dashboard');
     } catch (error) {
-      console.error('Login error:', error);
+      // Handle login error silently
       toast.error('Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
