@@ -1,0 +1,20 @@
+{
+  "short_name": "RNBRIDGE",
+  "name": "RNBRIDGE Ltd - Student Admission Management System",
+  "icons": [
+    {
+      "src": "rnbridge_logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "rnbridge_logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#A3122A",
+  "background_color": "#F5F6F8"
+} 
