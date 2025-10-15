@@ -76,24 +76,24 @@ const Universities = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen home-theme home-section-light py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold home-title-dark mb-4">
             Partner Universities
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl home-text-dark max-w-3xl mx-auto">
             Discover world-class universities and institutions that partner with us to provide
             exceptional educational opportunities for international students.
           </p>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="home-card rounded-lg p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 home-icon-primary w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search universities..."
@@ -135,16 +135,16 @@ const Universities = () => {
         {/* Universities Grid */}
         {filteredUniversities.length === 0 ? (
           <div className="text-center py-12">
-            <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No universities found</h3>
-            <p className="text-gray-600">
+            <Building className="w-16 h-16 home-icon-primary mx-auto mb-4" />
+            <h3 className="text-lg font-medium home-title-dark mb-2">No universities found</h3>
+            <p className="home-text-dark">
               Try adjusting your search criteria or filters.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredUniversities.map((university) => (
-              <div key={university.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div key={university.id} className="home-card overflow-hidden hover:shadow-lg transition-shadow">
                 {university.image && (
                   <div className="h-48 bg-gray-200">
                     <img
@@ -160,25 +160,25 @@ const Universities = () => {
                 
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold home-title-dark">
                       {university.name}
                     </h3>
                     <div className="flex items-center">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="ml-1 text-sm font-medium text-gray-900">
+                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                      <span className="ml-1 text-sm font-medium home-title-dark">
                         {university.rating}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-4">
-                    <div className="flex items-center text-sm text-gray-600">
+                    <div className="flex items-center text-sm home-text-dark">
                       <MapPin className="w-4 h-4 mr-2" />
                       <span>{university.location}, {university.country}</span>
                     </div>
                     
                     {university.students && (
-                      <div className="flex items-center text-sm text-gray-600">
+                      <div className="flex items-center text-sm home-text-dark">
                         <Users className="w-4 h-4 mr-2" />
                         <span>{university.students} students</span>
                       </div>
@@ -186,7 +186,7 @@ const Universities = () => {
                   </div>
 
                   {university.description && (
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                    <p className="text-sm home-text-dark mb-4 line-clamp-3">
                       {university.description}
                     </p>
                   )}
@@ -198,14 +198,14 @@ const Universities = () => {
                           key={i}
                           className={`w-4 h-4 ${
                             i < Math.floor(university.rating)
-                              ? 'text-yellow-400 fill-current'
+                              ? 'text-yellow-500 fill-current'
                               : 'text-gray-300'
                           }`}
                         />
                       ))}
                     </div>
                     
-                    <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                    <button className="home-btn-secondary text-sm font-medium px-3 py-1">
                       Learn More
                     </button>
                   </div>
@@ -216,44 +216,44 @@ const Universities = () => {
         )}
 
         {/* Stats Section */}
-        <div className="mt-16 bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+        <div className="mt-16 home-card p-8">
+          <h2 className="text-2xl font-bold home-title-dark mb-6 text-center">
             Why Choose Our Partner Universities?
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
-              <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Building className="w-6 h-6 text-primary-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--color-light-gray)'}}>
+                <Building className="w-6 h-6" style={{color: 'var(--color-crimson-red)'}} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold home-title-dark mb-2">
                 World-Class Institutions
               </h3>
-              <p className="text-gray-600">
+              <p className="home-text-dark">
                 Partner with top-ranked universities and colleges worldwide, ensuring quality education and recognized degrees.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Star className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--color-light-gray)'}}>
+                <Star className="w-6 h-6 text-yellow-500" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold home-title-dark mb-2">
                 High Success Rates
               </h3>
-              <p className="text-gray-600">
+              <p className="home-text-dark">
                 Our partner universities have excellent student success rates and strong career outcomes for graduates.
               </p>
             </div>
 
             <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Users className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4" style={{backgroundColor: 'var(--color-light-gray)'}}>
+                <Users className="w-6 h-6" style={{color: 'var(--color-crimson-red)'}} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold home-title-dark mb-2">
                 Diverse Student Body
               </h3>
-              <p className="text-gray-600">
+              <p className="home-text-dark">
                 Join a multicultural community with students from around the world, enriching your learning experience.
               </p>
             </div>
