@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { database } from '../firebase/config';
 import { ref, get, onValue } from 'firebase/database';
-import { Users, DollarSign, Copy, CheckCircle, Clock, XCircle, Search } from 'lucide-react';
+import { Users, DollarSign, Copy, CheckCircle, Clock, XCircle, Search, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
+import MessageModal from '../components/MessageModal';
 
 const AgentDashboard = () => {
   const { currentUser } = useAuth();
@@ -13,36 +14,51 @@ const AgentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [messageModal, setMessageModal] = useState({ isOpen: false, inquiry: null });
 
   useEffect(() => {
-    const fetchAgentData = async () => {
+    const fetchAgentData = async (retryCount = 0) => {
+      if (!currentUser) return;
+
       try {
-        // Get agent info from both users and agents tables
+        setLoading(true);
         let agent = null;
-        
-        // First try to get from agents table
+
+        // First, try to find agent in the agents table
         const agentsRef = ref(database, 'agents');
         const agentsSnapshot = await get(agentsRef);
+        
         if (agentsSnapshot.exists()) {
           const agents = agentsSnapshot.val();
-          agent = Object.values(agents).find(
-            agent => agent.email === currentUser.email
+          const agentEntry = Object.entries(agents).find(
+            ([id, agentData]) => agentData.email === currentUser.email
           );
+          
+          if (agentEntry) {
+            const [agentId, agentData] = agentEntry;
+            agent = {
+              ...agentData,
+              uid: agentId
+            };
+          }
         }
-        
+
         // If not found in agents table, try users table
         if (!agent) {
           const usersRef = ref(database, 'users');
           const usersSnapshot = await get(usersRef);
+          
           if (usersSnapshot.exists()) {
             const users = usersSnapshot.val();
-            const user = Object.values(users).find(
-              user => user.email === currentUser.email && user.role === 'agent'
+            const userEntry = Object.entries(users).find(
+              ([id, userData]) => userData.email === currentUser.email && userData.role === 'agent'
             );
-            if (user) {
+            
+            if (userEntry) {
+              const [userId, userData] = userEntry;
               agent = {
-                ...user,
-                uid: user.uid || Object.keys(users).find(key => users[key].email === currentUser.email)
+                ...userData,
+                uid: userId
               };
             }
           }
@@ -51,8 +67,18 @@ const AgentDashboard = () => {
         if (agent) {
           setAgentInfo(agent);
         } else {
-          console.error('Agent not found in database');
+          // Retry up to 3 times with a delay
+          if (retryCount < 3) {
+            setTimeout(() => {
+              fetchAgentData(retryCount + 1);
+            }, 1000 * (retryCount + 1)); // 1s, 2s, 3s delays
+            return;
+          }
+          
+          // After 3 retries, show error
           toast.error('Agent profile not found. Please contact admin.');
+          setLoading(false);
+          return;
         }
 
         // Listen for referrals
@@ -61,9 +87,16 @@ const AgentDashboard = () => {
           if (snapshot.exists()) {
             const inquiries = snapshot.val();
             const agentReferrals = Object.entries(inquiries)
-              .filter(([id, inquiry]) => 
-                inquiry.agentReferralKey === agentInfo?.referralKey
-              )
+              .filter(([id, inquiry]) => {
+                // Check if any message in the inquiry has this agent's referral key
+                if (inquiry.messages && Array.isArray(inquiry.messages)) {
+                  return inquiry.messages.some(message => 
+                    message.agentReferralKey === agent?.referralKey
+                  );
+                }
+                // Fallback for legacy inquiries that might have agentReferralKey at inquiry level
+                return inquiry.agentReferralKey === agent?.referralKey;
+              })
               .map(([id, inquiry]) => ({
                 id,
                 ...inquiry
@@ -79,13 +112,21 @@ const AgentDashboard = () => {
 
         return unsubscribe;
       } catch (error) {
-        console.error('Error fetching agent data:', error);
+        // Handle agent data fetch error silently
+        if (retryCount < 3) {
+          setTimeout(() => {
+            fetchAgentData(retryCount + 1);
+          }, 1000 * (retryCount + 1));
+          return;
+        }
+        
+        toast.error('Failed to load agent data');
         setLoading(false);
       }
     };
 
     fetchAgentData();
-  }, [currentUser, agentInfo?.referralKey]);
+  }, [currentUser]);
 
   // Filter referrals based on search and status
   useEffect(() => {
@@ -93,11 +134,26 @@ const AgentDashboard = () => {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(referral =>
-        referral.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        referral.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        referral.courseInterested?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter(referral => {
+        const searchLower = searchTerm.toLowerCase();
+        
+        // Check basic fields
+        const basicMatch = 
+          referral.fullName?.toLowerCase().includes(searchLower) ||
+          referral.email?.toLowerCase().includes(searchLower);
+        
+        if (basicMatch) return true;
+        
+        // Check course information in messages
+        if (referral.messages && Array.isArray(referral.messages)) {
+          return referral.messages.some(message => 
+            message.courseInterested?.toLowerCase().includes(searchLower)
+          );
+        }
+        
+        // Fallback for legacy inquiries
+        return referral.courseInterested?.toLowerCase().includes(searchLower);
+      });
     }
 
     // Filter by status
@@ -109,9 +165,12 @@ const AgentDashboard = () => {
   }, [referrals, searchTerm, statusFilter]);
 
   const copyReferralKey = () => {
-    if (agentInfo?.referralKey) {
-      navigator.clipboard.writeText(agentInfo.referralKey);
+    const referralKey = agentInfo?.referralKey || agentInfo?.referral_key;
+    if (referralKey) {
+      navigator.clipboard.writeText(referralKey);
       toast.success('Referral key copied to clipboard!');
+    } else {
+      toast.error('No referral key available to copy');
     }
   };
 
@@ -147,11 +206,23 @@ const AgentDashboard = () => {
     }
   };
 
+  const openMessageModal = (inquiry) => {
+    setMessageModal({ isOpen: true, inquiry });
+  };
+
+  const closeMessageModal = () => {
+    setMessageModal({ isOpen: false, inquiry: null });
+  };
+
   const totalReferrals = referrals.length;
   const admittedReferrals = referrals.filter(ref => ref.status === 'admitted').length;
   const pendingReferrals = referrals.filter(ref => ref.status === 'pending').length;
   const rejectedReferrals = referrals.filter(ref => ref.status === 'rejected').length;
-  const totalCommission = admittedReferrals * (agentInfo?.commissionPerReferral || 0);
+  
+  // Calculate commission as percentage (assuming a base amount per admitted student)
+  const baseAmountPerAdmission = 100; // Base amount per admitted student
+  const commissionPercentage = agentInfo?.commissionPerReferral || 0;
+  const totalCommission = admittedReferrals * (baseAmountPerAdmission * commissionPercentage / 100);
   // Calculate average commission per admitted referral (for future use)
   // const averageCommission = admittedReferrals > 0 ? totalCommission / admittedReferrals : 0;
 
@@ -220,7 +291,8 @@ const AgentDashboard = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Commission</p>
-                <p className="text-2xl font-bold text-gray-900">${totalCommission}</p>
+                <p className="text-2xl font-bold text-gray-900">${totalCommission.toFixed(2)}</p>
+                <p className="text-xs text-gray-500">{commissionPercentage}% of ${baseAmountPerAdmission} per admission</p>
               </div>
             </div>
           </div>
@@ -241,31 +313,44 @@ const AgentDashboard = () => {
         {/* Referral Key Section */}
         <div className="card mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Referral Key</h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={agentInfo?.referralKey || ''}
-                readOnly
-                className="input-field bg-gray-50 font-mono text-lg"
-              />
+          {agentInfo?.referralKey || agentInfo?.referral_key || agentInfo?.referralKey ? (
+            <div className="flex items-center space-x-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={agentInfo.referralKey || agentInfo.referral_key || ''}
+                  readOnly
+                  className="input-field bg-gray-50 font-mono text-lg"
+                />
+              </div>
+              <button
+                onClick={copyReferralKey}
+                className="btn-primary flex items-center"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy
+              </button>
             </div>
-            <button
-              onClick={copyReferralKey}
-              className="btn-primary flex items-center"
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              Copy
-            </button>
-          </div>
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-yellow-800">
+                <strong>No referral key found.</strong> Please contact the administrator to get your referral key assigned.
+              </p>
+              <p className="text-sm text-yellow-700 mt-2">
+                Debug info: Agent data available: {agentInfo ? 'Yes' : 'No'}, 
+                Referral key fields: referralKey={agentInfo?.referralKey}, 
+                referral_key={agentInfo?.referral_key}
+              </p>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="bg-blue-50 p-3 rounded-lg">
               <p className="font-medium text-blue-900">Commission Rate</p>
-              <p className="text-blue-700">${agentInfo?.commissionPerReferral || 0} per admitted referral</p>
+              <p className="text-blue-700">{agentInfo?.commissionPerReferral || 0}% per admitted referral</p>
             </div>
             <div className="bg-green-50 p-3 rounded-lg">
               <p className="font-medium text-green-900">Total Earnings</p>
-              <p className="text-green-700">${totalCommission} from {admittedReferrals} admitted referrals</p>
+              <p className="text-green-700">${totalCommission.toFixed(2)} from {admittedReferrals} admitted referrals</p>
             </div>
             <div className="bg-purple-50 p-3 rounded-lg">
               <p className="font-medium text-purple-900">Success Rate</p>
@@ -331,6 +416,9 @@ const AgentDashboard = () => {
                       Course
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Messages
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -371,7 +459,56 @@ const AgentDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {referral.courseInterested}
+                          {(() => {
+                            // Get course from the latest message that has course information
+                            if (referral.messages && Array.isArray(referral.messages)) {
+                              const latestMessage = referral.messages[referral.messages.length - 1];
+                              return latestMessage?.courseInterested || 'Not specified';
+                            }
+                            // Fallback for legacy inquiries
+                            return referral.courseInterested || 'Not specified';
+                          })()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-2">
+                          {referral.messages && referral.messages.length > 0 ? (
+                            <div>
+                              <div className="text-sm text-gray-600 mb-2">
+                                {(() => {
+                                  const lastMessage = referral.messages[referral.messages.length - 1];
+                                  const lastMessageTime = new Date(lastMessage.submittedAt);
+                                  const now = new Date();
+                                  const diffInHours = (now - lastMessageTime) / (1000 * 60 * 60);
+                                  const diffInDays = diffInHours / 24;
+                                  
+                                  if (diffInDays >= 7) {
+                                    return `Last message: ${lastMessageTime.toLocaleDateString()}`;
+                                  } else if (diffInDays >= 1) {
+                                    const days = Math.floor(diffInDays);
+                                    return `Last message: ${days} day${days > 1 ? 's' : ''} ago`;
+                                  } else if (diffInHours >= 1) {
+                                    const hours = Math.floor(diffInHours);
+                                    return `Last message: ${hours} hour${hours > 1 ? 's' : ''} ago`;
+                                  } else {
+                                    const minutes = Math.floor((now - lastMessageTime) / (1000 * 60));
+                                    return `Last message: ${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+                                  }
+                                })()}
+                              </div>
+                              <button
+                                onClick={() => openMessageModal(referral)}
+                                className="inline-flex items-center px-2 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+                              >
+                                <MessageSquare className="w-3 h-3 mr-1" />
+                                View All ({referral.messages.length} message{referral.messages.length > 1 ? 's' : ''})
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-400">
+                              No messages
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -381,7 +518,7 @@ const AgentDashboard = () => {
                         {new Date(referral.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {referral.status === 'admitted' ? `$${agentInfo?.commissionPerReferral || 0}` : '-'}
+                        {referral.status === 'admitted' ? `${agentInfo?.commissionPerReferral || 0}%` : '-'}
                       </td>
                     </tr>
                   ))}
@@ -391,6 +528,13 @@ const AgentDashboard = () => {
           )}
         </div>
       </div>
+      
+      {/* Message Modal */}
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={closeMessageModal}
+        inquiry={messageModal.inquiry}
+      />
     </div>
   );
 };

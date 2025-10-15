@@ -1,5 +1,5 @@
 import { database } from '../firebase/config';
-import { ref, set, get } from 'firebase/database';
+import { ref, set, get, push } from 'firebase/database';
 
 const defaultUniversities = [
   {
@@ -126,87 +126,73 @@ const defaultUniversities = [
 
 export const initializeUniversities = async () => {
   try {
-    console.log('=== Initializing Default Universities ===');
-    
     // First, test if we can read from the database
-    console.log('Testing database access...');
     const testRef = ref(database, 'test-connection');
     try {
       await get(testRef);
-      console.log('✅ Database read access confirmed');
     } catch (readError) {
-      console.log('⚠️ Database read access failed:', readError.message);
+      return {
+        success: false,
+        message: 'Database access failed'
+      };
     }
-    
+
     // Check if universities already exist
     const universitiesRef = ref(database, 'universities');
-    let snapshot;
+    let existingCount = 0;
+    
     try {
-      snapshot = await get(universitiesRef);
-      console.log('✅ Successfully read universities node');
+      const snapshot = await get(universitiesRef);
+      if (snapshot.exists()) {
+        const universities = snapshot.val();
+        existingCount = Object.keys(universities).length;
+      }
     } catch (error) {
-      console.log('❌ Failed to read universities node:', error.message);
       return {
         success: false,
-        message: `Database access denied: ${error.message}. Please check Firebase database rules.`,
-        error
+        message: 'Failed to check existing universities'
       };
     }
-    
-    if (snapshot.exists()) {
-      const count = Object.keys(snapshot.val()).length;
-      console.log(`✅ Universities already exist in database (${count} found)`);
+
+    if (existingCount > 0) {
       return {
         success: true,
-        message: `Universities already initialized (${count} found)`,
-        count: count
+        message: `Universities already exist in database (${existingCount} found)`
       };
     }
-    
-    console.log('Creating default universities...');
-    
-    // Try to add universities one by one with error handling
+
+    // Create default universities
     let successCount = 0;
-    let errorCount = 0;
     
-    for (let i = 0; i < defaultUniversities.length; i++) {
-      const university = defaultUniversities[i];
-      const universityRef = ref(database, `universities/${i + 1}`);
-      
+    for (const university of defaultUniversities) {
       try {
-        await set(universityRef, university);
-        console.log(`✅ Added: ${university.name}`);
+        const newUniversityRef = push(ref(database, 'universities'));
+        await set(newUniversityRef, {
+          ...university,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
         successCount++;
       } catch (error) {
-        console.log(`❌ Failed to add ${university.name}:`, error.message);
-        errorCount++;
+        // Continue with next university if one fails
       }
     }
-    
+
     if (successCount > 0) {
-      console.log(`✅ Successfully initialized ${successCount} universities`);
       return {
         success: true,
-        message: `Successfully initialized ${successCount} universities${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
-        count: successCount,
-        errors: errorCount
+        message: `Successfully initialized ${successCount} universities`
       };
     } else {
-      console.log('❌ Failed to initialize any universities');
       return {
         success: false,
-        message: `Failed to initialize universities. All ${defaultUniversities.length} attempts failed. Check Firebase database rules.`,
-        count: 0,
-        errors: errorCount
+        message: 'Failed to initialize any universities'
       };
     }
-    
   } catch (error) {
-    console.error('❌ Error initializing universities:', error);
     return {
       success: false,
-      message: `Failed to initialize universities: ${error.message}. Please check Firebase configuration and database rules.`,
-      error
+      message: 'Error initializing universities'
     };
   }
 }; 

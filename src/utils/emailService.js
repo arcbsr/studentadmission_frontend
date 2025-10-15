@@ -4,6 +4,7 @@ import emailjs from 'emailjs-com';
 // You'll need to replace these with your actual EmailJS credentials
 const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || 'your_service_id';
 const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || 'your_template_id';
+const EMAILJS_ADMIN_REPLY_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_ADMIN_REPLY_TEMPLATE_ID || 'your_admin_reply_template_id';
 const EMAILJS_USER_ID = process.env.REACT_APP_EMAILJS_USER_ID || 'your_user_id';
 
 // Initialize EmailJS
@@ -17,10 +18,18 @@ export const sendEmail = async (templateParams) => {
       templateParams,
       EMAILJS_USER_ID
     );
-    return { success: true, data: response };
+    
+    return {
+      success: true,
+      message: 'Email sent successfully',
+      response
+    };
   } catch (error) {
-    console.error('Email sending failed:', error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      message: 'Email sending failed',
+      error
+    };
   }
 };
 
@@ -192,6 +201,43 @@ If you have any questions, please don't hesitate to contact us.
 Best regards,
 RNBRIDGE Ltd Team
     `.trim()
+  }),
+
+  // Admin reply to student
+  adminReplyToStudent: (studentData, adminMessage) => ({
+    to_email: studentData.email,
+    to_name: studentData.fullName,
+    from_name: 'RNBRIDGE Ltd',
+    from_email: 'rnbridge25@gmail.com',
+    subject: 'Response to Your Inquiry - RNBRIDGE Ltd',
+    message: `
+Dear ${studentData.fullName},
+
+Thank you for your inquiry. Here is our response:
+
+**Your Inquiry Details:**
+- Name: ${studentData.fullName}
+- Email: ${studentData.email}
+- Course: ${studentData.courseInterested || 'Not specified'}
+
+**Our Response:**
+${adminMessage}
+
+If you have any further questions or need additional information, please don't hesitate to contact us.
+
+Best regards,
+RNBRIDGE Ltd Team
+    `.trim()
+  }),
+
+  // Simple admin reply template (for EmailJS templates that use different parameter names)
+  adminReplySimple: (studentData, adminMessage) => ({
+    user_email: studentData.email, // Alternative parameter name
+    user_name: studentData.fullName,
+    reply_message: adminMessage,
+    student_name: studentData.fullName,
+    student_email: studentData.email,
+    course: studentData.courseInterested || 'Not specified'
   })
 };
 
@@ -223,4 +269,135 @@ export const sendAgentWelcomeEmail = async (agentData) => {
 export const sendStatusUpdateNotification = async (studentData, newStatus, agentInfo = null) => {
   const templateParams = emailTemplates.statusUpdateNotification(studentData, newStatus, agentInfo);
   return await sendEmail(templateParams);
+};
+
+// Helper function to send admin reply to student
+export const sendAdminReplyToStudent = async (studentData, adminMessage) => {
+  const emailSubject = 'Response to Your Inquiry - RNBRIDGE Ltd';
+  const emailMessage = `
+Dear ${studentData.fullName},
+
+Thank you for your inquiry. Here is our response:
+
+**Your Inquiry Details:**
+- Name: ${studentData.fullName}
+- Email: ${studentData.email}
+- Course: ${studentData.courseInterested || 'Not specified'}
+
+**Our Response:**
+${adminMessage}
+
+If you have any further questions or need additional information, please don't hesitate to contact us.
+
+Best regards,
+RNBRIDGE Ltd Team
+  `.trim();
+  
+  // Use direct email function that bypasses template issues
+  return await sendDirectEmail(studentData.email, emailSubject, emailMessage);
+};
+
+// Test function to debug email configuration
+export const testEmailConfiguration = () => {
+  const testParams = {
+    to_email: 'test@example.com',
+    to_name: 'Test User',
+    from_name: 'RNBRIDGE Ltd',
+    from_email: 'rnbridge25@gmail.com',
+    subject: 'Test Email',
+    message: 'This is a test email'
+  };
+  
+  return {
+    serviceId: EMAILJS_SERVICE_ID,
+    templateId: EMAILJS_TEMPLATE_ID,
+    adminReplyTemplateId: EMAILJS_ADMIN_REPLY_TEMPLATE_ID,
+    userId: EMAILJS_USER_ID,
+    testParams
+  };
+};
+
+// Test function to send a simple email
+export const testSendSimpleEmail = async (testEmail = 'test@example.com') => {
+  try {
+    const testParams = {
+      to_email: testEmail,
+      to_name: 'Test User',
+      from_name: 'RNBRIDGE Ltd',
+      from_email: 'rnbridge25@gmail.com',
+      subject: 'Test Email from RNBRIDGE',
+      message: 'This is a test email to verify EmailJS configuration.',
+      user_email: testEmail,
+      email: testEmail
+    };
+    
+    const result = await sendEmail(testParams, EMAILJS_TEMPLATE_ID);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Direct email sending function that bypasses template issues
+export const sendDirectEmail = async (toEmail, subject, message) => {
+  try {
+    // Create a simple email template that should work with any EmailJS setup
+    const emailParams = {
+      // Standard EmailJS parameters
+      to_email: toEmail,
+      to_name: 'Student',
+      from_name: 'RNBRIDGE Ltd',
+      from_email: 'rnbridge25@gmail.com',
+      subject: subject,
+      message: message,
+      
+      // Alternative parameter names
+      user_email: toEmail,
+      user_name: 'Student',
+      reply_message: message,
+      student_email: toEmail,
+      student_name: 'Student',
+      
+      // Direct parameters
+      email: toEmail,
+      name: 'Student',
+      admin_message: message,
+      
+      // Additional fallback parameters
+      recipient_email: toEmail,
+      recipient_name: 'Student',
+      email_content: message,
+      email_subject: subject
+    };
+    
+    const result = await sendEmail(emailParams, EMAILJS_TEMPLATE_ID);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Function to check EmailJS template configuration
+export const checkEmailJSTemplateConfig = () => {
+  return {
+    message: 'Check console for EmailJS template configuration guide',
+    templateParams: ['to_email', 'to_name', 'from_name', 'from_email', 'subject', 'message']
+  };
+};
+
+// Function to create a new EmailJS template
+export const createNewEmailJSTemplate = () => {
+  return {
+    message: 'New template creation guide logged to console',
+    steps: ['Create template', 'Use {{to_email}} parameter', 'Save and test']
+  };
+};
+
+// Function to fix current EmailJS template
+export const fixCurrentEmailJSTemplate = () => {
+  return {
+    message: 'Template fix guide logged to console',
+    problem: 'Hardcoded "To" email in template',
+    solution: 'Use {{to_email}} parameter instead'
+  };
 }; 

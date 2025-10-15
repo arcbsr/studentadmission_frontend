@@ -27,45 +27,106 @@ export const AuthProvider = ({ children }) => {
   const [userPermissions, setUserPermissions] = useState({});
   const [userData, setUserData] = useState(null);
 
+  // Simplified logout function
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+      setUserRole(null);
+      setUserPermissions({});
+      setUserData(null);
+    } catch (error) {
+      // Logout error handled silently
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        // Get user data from database
-        try {
-          const userRef = ref(database, `users/${user.uid}`);
-          const snapshot = await get(userRef);
-          if (snapshot.exists()) {
-            const userInfo = snapshot.val();
-            setUserRole(userInfo.role);
-            setUserPermissions(userInfo.permissions || {});
-            setUserData(userInfo);
-
-            // Update last login
-            await update(ref(database, `users/${user.uid}`), {
-              lastLogin: Date.now()
-            });
+      try {
+        if (user) {
+          setCurrentUser(user);
+          
+          // Get user data from database
+          try {
+            const userRef = ref(database, `users/${user.uid}`);
+            const userSnapshot = await get(userRef);
+            
+            if (userSnapshot.exists()) {
+              const userInfo = userSnapshot.val();
+              
+              if (userInfo && userInfo.role) {
+                // Check if user is active
+                if (userInfo.isActive === false) {
+                  await logout();
+                  return;
+                }
+                
+                setUserRole(userInfo.role);
+                setUserPermissions(userInfo.permissions || {});
+                setUserData(userInfo);
+              }
+            } else {
+              // Check agents table
+              const agentsRef = ref(database, 'agents');
+              const agentsSnapshot = await get(agentsRef);
+              
+              if (agentsSnapshot.exists()) {
+                const agents = agentsSnapshot.val();
+                const agentEntry = Object.entries(agents).find(
+                  ([id, agentData]) => agentData.email === user.email
+                );
+                
+                if (agentEntry) {
+                  const [agentId, agentData] = agentEntry;
+                  const userInfo = {
+                    ...agentData,
+                    uid: agentId,
+                    role: 'agent'
+                  };
+                  
+                  if (userInfo.isActive === false) {
+                    await logout();
+                    return;
+                  }
+                  
+                  setUserRole(userInfo.role);
+                  setUserPermissions(userInfo.permissions || {});
+                  setUserData(userInfo);
+                }
+              }
+            }
+          } catch (error) {
+            // Error fetching user data handled silently
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
+        } else {
+          setCurrentUser(null);
+          setUserRole(null);
+          setUserPermissions({});
+          setUserData(null);
         }
-      } else {
-        setCurrentUser(null);
-        setUserRole(null);
-        setUserPermissions({});
-        setUserData(null);
+      } catch (error) {
+        // Auth state change error handled silently
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
   }, []);
+
+  const isAuthenticated = () => {
+    if (loading) {
+      return false;
+    }
+    return currentUser && currentUser.email && currentUser.uid;
+  };
 
   const login = async (email, password) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       return result;
     } catch (error) {
+      // Login error handled silently
       throw error;
     }
   };
@@ -89,10 +150,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       throw error;
     }
-  };
-
-  const logout = () => {
-    return signOut(auth);
   };
 
   const changePassword = async (newPassword) => {
@@ -126,7 +183,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = (permission) => {
-    if (userRole === 'super_admin') return true;
+    if (userRole === 'super_admin') {
+      return true;
+    }
     return userPermissions[permission] || false;
   };
 
@@ -177,21 +236,23 @@ export const AuthProvider = ({ children }) => {
     userRole,
     userPermissions,
     userData,
+    loading,
     login,
-    signup,
     logout,
+    signup,
     changePassword,
     resetPassword,
     updateUserProfile,
     hasPermission,
     isSuperAdmin,
     isAdmin,
-    isAgent
+    isAgent,
+    isAuthenticated
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
-}; 
+};

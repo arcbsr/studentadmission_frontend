@@ -1,151 +1,197 @@
 import { auth, database } from '../firebase/config';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { ref, set, get, update } from 'firebase/database';
 
 export const initializeDefaultAdmin = async () => {
-  const adminEmail = 'rnbridge25@gmail.com';
-  const adminPassword = 'Extra@2613';
+  const email = process.env.REACT_APP_SUPER_ADMIN_EMAIL || 'rnbridge25@gmail.com';
+  const password = process.env.REACT_APP_SUPER_ADMIN_PASSWORD || 'Extra@2613';
   
   try {
-    console.log('Initializing default super admin user...');
+    // Check if super admin already exists in database
+    const adminSnapshot = await get(ref(database, 'users'));
     
-    // Check if admin already exists
-    const usersRef = ref(database, 'users');
-    const snapshot = await get(usersRef);
-    
-    if (snapshot.exists()) {
-      const users = snapshot.val();
-      const existingAdmin = Object.values(users).find(
-        user => user.email === adminEmail && user.role === 'super_admin'
+    if (adminSnapshot.exists()) {
+      const users = adminSnapshot.val();
+      const superAdmin = Object.values(users).find(user => 
+        user.role === 'super_admin' && user.email === email
       );
       
-      if (existingAdmin) {
-        console.log('✅ Super admin user already exists');
-        return { success: true, message: 'Super admin user already exists' };
+      if (superAdmin) {
+        return {
+          success: true,
+          message: 'Super admin user already exists'
+        };
       }
     }
+
+    // Create super admin user
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
-    // Create admin user with Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
-    const adminUid = userCredential.user.uid;
-    
-    // Save super admin data to database
-    await set(ref(database, `users/${adminUid}`), {
-      email: adminEmail,
+    const superAdminUser = {
+      uid: userCredential.user.uid,
+      name: 'Super Admin',
+      email: email,
       role: 'super_admin',
-      name: 'RNBRIDGE Super Admin',
-      permissions: {
-        manageUsers: true,
-        manageUniversities: true,
-        manageInquiries: true,
-        manageAgents: true,
-        manageCompany: true,
-        viewAnalytics: true,
-        systemSettings: true
-      },
       isActive: true,
-      isSuperAdmin: true,
       createdAt: Date.now(),
-      lastLogin: Date.now()
-    });
-    
-    console.log('✅ Super admin user created successfully');
-    return { 
-      success: true, 
-      message: 'Super admin user created successfully',
-      uid: adminUid 
+      lastLogin: null,
+      permissions: {
+        viewAnalytics: true,
+        manageUsers: true,
+        manageAgents: true,
+        manageInquiries: true,
+        manageUniversities: true,
+        manageCompany: true,
+        manageCommissions: true
+      }
     };
-    
+
+    // Save to database
+    await set(ref(database, `users/${userCredential.user.uid}`), superAdminUser);
+
+    // Update Firebase Auth profile
+    await updateProfile(userCredential.user, {
+      displayName: 'Super Admin'
+    });
+
+    return {
+      success: true,
+      message: 'Super admin user created successfully'
+    };
   } catch (error) {
-    console.error('❌ Error creating super admin user:', error);
-    
-    // If user already exists in Firebase Auth, just ensure database is updated
     if (error.code === 'auth/email-already-in-use') {
       try {
-        // Find the user in the database by email
-        const usersRef = ref(database, 'users');
-        const snapshot = await get(usersRef);
+        // First, try to find the user in Firebase Auth by email
+        const usersSnapshot = await get(ref(database, 'users'));
+        let existingUser = null;
+        let existingUserId = null;
         
-        if (snapshot.exists()) {
-          const users = snapshot.val();
-          const adminEntry = Object.entries(users).find(([uid, user]) => 
-            user.email === adminEmail
+        if (usersSnapshot.exists()) {
+          const users = usersSnapshot.val();
+          const userEntry = Object.entries(users).find(([uid, user]) => 
+            user.email === email
           );
           
-          if (adminEntry) {
-            const [adminUid] = adminEntry;
-            
-            // Update user data in database
-            await update(ref(database, `users/${adminUid}`), {
-              role: 'super_admin',
-              name: 'RNBRIDGE Super Admin',
-              permissions: {
-                manageUsers: true,
-                manageUniversities: true,
-                manageInquiries: true,
-                manageAgents: true,
-                manageCompany: true,
-                viewAnalytics: true,
-                systemSettings: true
-              },
-              isActive: true,
-              isSuperAdmin: true,
-              updatedAt: Date.now()
-            });
-            
-            console.log('✅ Super admin user updated successfully');
-            return { 
-              success: true, 
-              message: 'Super admin user updated successfully',
-              uid: adminUid 
-            };
+          if (userEntry) {
+            [existingUserId, existingUser] = userEntry;
           }
         }
         
-        console.log('✅ Super admin user exists but not found in database');
-        return { 
-          success: true, 
-          message: 'Super admin user exists but not found in database'
-        };
-      } catch (updateError) {
-        console.error('❌ Error updating admin:', updateError);
-        return { 
-          success: false, 
-          message: 'Error updating super admin user: ' + updateError.message 
+        if (existingUser) {
+          // Update existing user to super admin
+          await update(ref(database, `users/${existingUserId}`), {
+            role: 'super_admin',
+            permissions: {
+              viewAnalytics: true,
+              manageUsers: true,
+              manageAgents: true,
+              manageInquiries: true,
+              manageUniversities: true,
+              manageCompany: true,
+              manageCommissions: true
+            },
+            updatedAt: Date.now()
+          });
+
+          return {
+            success: true,
+            message: 'Super admin user updated successfully'
+          };
+        } else {
+          // User exists in Firebase Auth but not in database
+          const authUser = auth.currentUser;
+          if (authUser && authUser.email === email) {
+            // Create database entry for existing Firebase Auth user
+            await set(ref(database, `users/${authUser.uid}`), {
+              uid: authUser.uid,
+              name: 'Super Admin',
+              email: email,
+              role: 'super_admin',
+              isActive: true,
+              createdAt: Date.now(),
+              lastLogin: null,
+              permissions: {
+                viewAnalytics: true,
+                manageUsers: true,
+                manageAgents: true,
+                manageInquiries: true,
+                manageUniversities: true,
+                manageCompany: true,
+                manageCommissions: true
+              }
+            });
+
+            return {
+              success: true,
+              message: 'Database entry created for existing Firebase Auth user'
+            };
+          }
+        }
+      } catch (dbError) {
+        return {
+          success: false,
+          message: 'Error handling existing user: ' + dbError.message
         };
       }
     }
     
-    return { 
-      success: false, 
-      message: 'Error creating super admin user: ' + error.message 
+    return {
+      success: false,
+      message: 'Error creating super admin: ' + error.message
     };
   }
 };
 
 export const checkAdminExists = async () => {
   try {
-    const usersRef = ref(database, 'users');
-    const snapshot = await get(usersRef);
+    const adminSnapshot = await get(ref(database, 'users'));
     
-    if (snapshot.exists()) {
-      const users = snapshot.val();
-      const admin = Object.values(users).find(
-        user => user.email === 'rnbridge25@gmail.com' && user.role === 'super_admin'
+    if (adminSnapshot.exists()) {
+      const users = adminSnapshot.val();
+      const superAdmin = Object.values(users).find(user => 
+        user.role === 'super_admin'
       );
-      return admin ? true : false;
+      
+      return !!superAdmin;
     }
+    
     return false;
   } catch (error) {
-    console.error('Error checking admin:', error);
     return false;
+  }
+};
+
+export const ensureSuperAdminExists = async () => {
+  try {
+    const adminExists = await checkAdminExists();
+    
+    if (!adminExists) {
+      // Try to check and fix Firebase Auth user
+      const email = process.env.REACT_APP_SUPER_ADMIN_EMAIL || 'rnbridge25@gmail.com';
+      const password = process.env.REACT_APP_SUPER_ADMIN_PASSWORD || 'Extra@2613';
+      
+      const fixResult = await checkAndFixFirebaseAuthUser(email, password);
+      if (fixResult.success) {
+        return fixResult;
+      } else {
+        return await initializeDefaultAdmin();
+      }
+    } else {
+      return {
+        success: true,
+        message: 'Super admin already exists'
+      };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Error ensuring super admin exists: ' + error.message
+    };
   }
 };
 
 export const createSuperUser = async (email, password, userData = {}) => {
   try {
-    console.log('Creating super user:', email);
-    
     // Create user with Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const uid = userCredential.user.uid;
@@ -171,7 +217,6 @@ export const createSuperUser = async (email, password, userData = {}) => {
       lastLogin: Date.now()
     });
     
-    console.log('✅ Super user created successfully');
     return { 
       success: true, 
       message: 'Super user created successfully',
@@ -179,7 +224,6 @@ export const createSuperUser = async (email, password, userData = {}) => {
     };
     
   } catch (error) {
-    console.error('❌ Error creating super user:', error);
     return { 
       success: false, 
       message: 'Error creating super user: ' + error.message 
@@ -195,14 +239,158 @@ export const updateUserRole = async (uid, newRole, permissions = {}) => {
       updatedAt: Date.now()
     });
     
-    console.log('✅ User role updated successfully');
     return { success: true, message: 'User role updated successfully' };
     
   } catch (error) {
-    console.error('❌ Error updating user role:', error);
     return { 
       success: false, 
       message: 'Error updating user role: ' + error.message 
+    };
+  }
+};
+
+export const checkAndFixFirebaseAuthUser = async (email, password) => {
+  try {
+    // Try to sign in to check if user exists in Firebase Auth
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+    
+    // Check if user exists in database
+    const userSnapshot = await get(ref(database, `users/${uid}`));
+    
+    if (!userSnapshot.exists()) {
+      // User exists in Firebase Auth but not in database, create database entry
+      await set(ref(database, `users/${uid}`), {
+        uid: uid,
+        name: 'Super Admin',
+        email: email,
+        role: 'super_admin',
+        isActive: true,
+        createdAt: Date.now(),
+        lastLogin: Date.now(),
+        permissions: {
+          viewAnalytics: true,
+          manageUsers: true,
+          manageAgents: true,
+          manageInquiries: true,
+          manageUniversities: true,
+          manageCompany: true,
+          manageCommissions: true
+        }
+      });
+      
+      return {
+        success: true,
+        message: 'Firebase Auth user fixed - database entry created'
+      };
+    } else {
+      // User exists in both Firebase Auth and database
+      const userData = userSnapshot.val();
+      
+      if (userData.role !== 'super_admin') {
+        // Update user to super admin
+        await update(ref(database, `users/${uid}`), {
+          role: 'super_admin',
+          permissions: {
+            viewAnalytics: true,
+            manageUsers: true,
+            manageAgents: true,
+            manageInquiries: true,
+            manageUniversities: true,
+            manageCompany: true,
+            manageCommissions: true
+          },
+          updatedAt: Date.now()
+        });
+        
+        return {
+          success: true,
+          message: 'Firebase Auth user fixed - role updated to super admin'
+        };
+      } else {
+        return {
+          success: true,
+          message: 'Firebase Auth user already exists as super admin'
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Error fixing Firebase Auth user: ' + error.message
+    };
+  }
+}; 
+
+export const createUserWithoutSignIn = async (email, password, userData = {}) => {
+  try {
+    // Create user with Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+    
+    // Immediately sign out to prevent auto login
+    await signOut(auth);
+    
+    // Save user data to database
+    await set(ref(database, `users/${uid}`), {
+      email,
+      role: userData.role || 'agent',
+      name: userData.name || 'New User',
+      phone: userData.phone || '',
+      country: userData.country || '',
+      permissions: userData.permissions || {},
+      isActive: userData.isActive !== false,
+      ...userData,
+      createdAt: Date.now(),
+      lastLogin: null
+    });
+    
+    return { 
+      success: true, 
+      message: 'User created successfully',
+      uid 
+    };
+    
+  } catch (error) {
+    return { 
+      success: false, 
+      message: 'Error creating user: ' + error.message 
+    };
+  }
+}; 
+
+export const createUserInDatabaseOnly = async (email, password, userData = {}) => {
+  try {
+    // Generate a unique UID for the user (since we're not using Firebase Auth)
+    const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Save user data to database only
+    await set(ref(database, `users/${uid}`), {
+      uid,
+      email,
+      role: userData.role || 'agent',
+      name: userData.name || 'New User',
+      phone: userData.phone || '',
+      country: userData.country || '',
+      permissions: userData.permissions || {},
+      isActive: userData.isActive !== false,
+      password: password, // Store password temporarily for Firebase Auth creation
+      needsFirebaseAuth: true, // Flag to indicate this user needs Firebase Auth account
+      ...userData,
+      createdAt: Date.now(),
+      lastLogin: null
+    });
+    
+    return { 
+      success: true, 
+      message: 'User created in database. Firebase Auth account will be created on first login.',
+      uid 
+    };
+    
+  } catch (error) {
+    return { 
+      success: false, 
+      message: 'Error creating user: ' + error.message 
     };
   }
 }; 

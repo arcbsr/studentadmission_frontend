@@ -1,84 +1,80 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
-import { Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { Menu, X, User, LogOut, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { useNavigationWithScroll } from '../utils/navigation';
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
   const { currentUser, userRole, logout } = useAuth();
   const { companyInfo } = useCompany();
-  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const { navigateWithScroll } = useNavigationWithScroll();
 
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/');
+      // Navigate to home page after logout
+      navigateWithScroll('/');
     } catch (error) {
-      console.error('Error logging out:', error);
+      // Even on error, navigate to home
+      navigateWithScroll('/');
     }
   };
+
+  // Only show logout menu if user is properly authenticated
+  const isProperlyAuthenticated = currentUser && userRole && currentUser.email && currentUser.uid;
 
   return (
     <nav className="bg-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 flex items-center">
-              <h1 className="text-2xl font-bold text-primary-600">
-                {companyInfo.name}
-              </h1>
-            </Link>
+            <button 
+              onClick={() => navigateWithScroll(isProperlyAuthenticated ? (userRole === 'agent' ? '/agent/dashboard' : '/admin/dashboard') : '/')}
+              className="flex items-center space-x-2"
+            >
+              <GraduationCap className="w-8 h-8 text-primary-600" />
+              <span className="text-xl font-bold text-gray-900">{companyInfo.name}</span>
+            </button>
           </div>
 
-          {/* Desktop Menu */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-              Home
-            </Link>
-            <Link to="/universities" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-              Universities
-            </Link>
-            <Link to="/about" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-              About
-            </Link>
-            <Link to="/contact" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-              Contact
-            </Link>
-
-            {currentUser ? (
-              <div className="flex items-center space-x-4">
-                {(userRole === 'agent' || userRole === 'admin' || userRole === 'super_admin') && (
-                  <Link 
-                    to={userRole === 'agent' ? "/agent/dashboard" : "/admin/dashboard"} 
-                    className="flex items-center text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    <LayoutDashboard className="w-4 h-4 mr-2" />
-                    Dashboard
-                  </Link>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Logout
-                </button>
-              </div>
+            {!isProperlyAuthenticated ? (
+              // Public navigation
+              <>
+                <Link to="/" className="text-gray-700 hover:text-primary-600 transition-colors">Home</Link>
+                <Link to="/about" className="text-gray-700 hover:text-primary-600 transition-colors">About</Link>
+                <Link to="/universities" className="text-gray-700 hover:text-primary-600 transition-colors">Universities</Link>
+                <Link to="/contact" className="text-gray-700 hover:text-primary-600 transition-colors">Contact</Link>
+                <Link to="/faq" className="text-gray-700 hover:text-primary-600 transition-colors">FAQ</Link>
+                <Link to="/inquiry" className="btn-primary">Apply Now</Link>
+              </>
             ) : (
+              // Authenticated user navigation
               <div className="flex items-center space-x-4">
-                <Link to="/agent/login" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-                  Agent Login
-                </Link>
-                <Link to="/admin/login" className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
-                  Admin Login
-                </Link>
+                <button 
+                  onClick={() => navigateWithScroll(userRole === 'agent' ? '/agent/dashboard' : '/admin/dashboard')}
+                  className="flex items-center text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  <LayoutDashboard className="w-4 h-4 mr-2" />
+                  Dashboard
+                </button>
+                <div className="relative group">
+                  <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors">
+                    <User className="w-5 h-5" />
+                    <span>{currentUser.email}</span>
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                    <button onClick={handleLogout} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
-            
-            <Link to="/inquiry" className="btn-primary text-sm">
-              Apply Now
-            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -97,35 +93,46 @@ const Navbar = () => {
       {isOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
-            <Link to="/" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-              Home
-            </Link>
-            <Link to="/universities" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-              Universities
-            </Link>
-            <Link to="/about" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-              About
-            </Link>
-            <Link to="/contact" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-              Contact
-            </Link>
-            <Link to="/inquiry" className="block btn-primary text-base font-medium text-center">
-              Apply Now
-            </Link>
-
-            {currentUser ? (
+            {!isProperlyAuthenticated ? (
+              // Public navigation
               <>
-                {(userRole === 'agent' || userRole === 'admin' || userRole === 'super_admin') && (
-                  <Link 
-                    to={userRole === 'agent' ? "/agent/dashboard" : "/admin/dashboard"} 
-                    className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium"
-                  >
-                    <div className="flex items-center">
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </div>
-                  </Link>
-                )}
+                <Link to="/" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                  Home
+                </Link>
+                <Link to="/universities" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                  Universities
+                </Link>
+                <Link to="/about" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                  About
+                </Link>
+                <Link to="/contact" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                  Contact
+                </Link>
+                <Link to="/faq" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                  FAQ
+                </Link>
+                <Link to="/inquiry" className="block btn-primary text-base font-medium text-center">
+                  Apply Now
+                </Link>
+              </>
+            ) : (
+              // Authenticated user navigation
+              <>
+                <Link 
+                  to={userRole === 'agent' ? "/agent/dashboard" : "/admin/dashboard"} 
+                  className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium"
+                >
+                  <div className="flex items-center">
+                    <LayoutDashboard className="w-4 h-4 mr-2" />
+                    Dashboard
+                  </div>
+                </Link>
+                <div className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                  <div className="flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    {currentUser.email}
+                  </div>
+                </div>
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left text-gray-700 hover:text-red-600 px-3 py-2 rounded-md text-base font-medium"
@@ -135,15 +142,6 @@ const Navbar = () => {
                     Logout
                   </div>
                 </button>
-              </>
-            ) : (
-              <>
-                <Link to="/agent/login" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-                  Agent Login
-                </Link>
-                <Link to="/admin/login" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-                  Admin Login
-                </Link>
               </>
             )}
           </div>

@@ -35,8 +35,8 @@ const UserManagement = () => {
       });
       toast.success('User role updated successfully!');
     } catch (error) {
-      console.error('Error updating user role:', error);
-      toast.error('Failed to update user role.');
+      // Handle user role update error silently
+      toast.error('Failed to update user role');
     }
   };
 
@@ -48,7 +48,7 @@ const UserManagement = () => {
       });
       toast.success(`User ${isActive ? 'disabled' : 'enabled'} successfully!`);
     } catch (error) {
-      console.error('Error updating user status:', error);
+      // Handle user status update error silently
       toast.error('Failed to update user status.');
     }
   };
@@ -58,10 +58,10 @@ const UserManagement = () => {
       try {
         await remove(ref(database, `users/${userId}`));
         toast.success('User deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        toast.error('Failed to delete user.');
-      }
+          } catch (error) {
+      // Handle user deletion error silently
+      toast.error('Failed to delete user.');
+    }
     }
   };
 

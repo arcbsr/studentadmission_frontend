@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { database } from '../firebase/config';
 import { ref, onValue } from 'firebase/database';
 import { Search, MapPin, Star, Users, Building } from 'lucide-react';
-import { testUniversities } from '../utils/testUniversities';
 
 const Universities = () => {
   const [universities, setUniversities] = useState([]);
@@ -69,16 +68,7 @@ const Universities = () => {
             <p className="mt-1 text-sm text-gray-500">
               Universities will be loaded automatically. Please check back in a few moments.
             </p>
-            <button
-              onClick={async () => {
-                const result = await testUniversities();
-                console.log('Test result:', result);
-                alert(result.message);
-              }}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Test Universities Loading
-            </button>
+
           </div>
         </div>
       </div>

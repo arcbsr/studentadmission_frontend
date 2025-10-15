@@ -1,10 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCompany } from '../contexts/CompanyContext';
-import { GraduationCap, Globe, Users, Award, ArrowRight, CheckCircle } from 'lucide-react';
+import { GraduationCap, Globe, Users, Award, ArrowRight, CheckCircle, Shield, TrendingUp } from 'lucide-react';
+import { useNavigationWithScroll } from '../utils/navigation';
 
 const Home = () => {
   const { companyInfo } = useCompany();
+  const { navigateWithScroll } = useNavigationWithScroll();
+
+  const handleApplyNow = () => {
+    navigateWithScroll('/inquiry');
+  };
+
+  const handleExploreUniversities = () => {
+    navigateWithScroll('/universities');
+  };
 
   const features = [
     {
@@ -54,13 +64,19 @@ const Home = () => {
                 Start your international academic journey with expert guidance and comprehensive support.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link to="/inquiry" className="btn-primary text-lg px-8 py-3 inline-flex items-center">
+                <button 
+                  onClick={handleApplyNow}
+                  className="btn-primary text-lg px-8 py-3 inline-flex items-center"
+                >
                   Apply Now
                   <ArrowRight className="ml-2 w-5 h-5" />
-                </Link>
-                <Link to="/universities" className="btn-secondary text-lg px-8 py-3">
+                </button>
+                <button 
+                  onClick={handleExploreUniversities}
+                  className="btn-secondary text-lg px-8 py-3"
+                >
                   Explore Universities
-                </Link>
+                </button>
               </div>
             </div>
             <div className="hidden lg:block">
@@ -164,6 +180,84 @@ const Home = () => {
               <Link to="/inquiry" className="btn-primary w-full text-center">
                 Submit Your Inquiry
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Agent Portal Section */}
+      <section className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+                Are You an Agent?
+              </h2>
+              <p className="text-xl text-gray-600 mb-8">
+                Access your exclusive agent dashboard to manage student referrals, track commissions, 
+                and grow your business with {companyInfo.name}.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-4">
+                    <Users className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <span className="text-gray-700">Manage student referrals</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-4">
+                    <TrendingUp className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <span className="text-gray-700">Track commissions and earnings</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-4">
+                    <Shield className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <span className="text-gray-700">Secure access to your dashboard</span>
+                </div>
+              </div>
+              <div className="mt-8">
+                <Link 
+                  to="/agent/login" 
+                  className="inline-flex items-center bg-primary-600 text-white hover:bg-primary-700 font-semibold py-3 px-8 rounded-lg transition-colors"
+                >
+                  <Shield className="w-5 h-5 mr-2" />
+                  Agent Login
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                  <Shield className="w-8 h-8 text-primary-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  Agent Benefits
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Join our network of successful agents and start earning commissions while helping students achieve their dreams.
+                </p>
+                <div className="space-y-3 text-left">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Competitive commission rates</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Real-time tracking system</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Dedicated support team</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Marketing materials provided</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
