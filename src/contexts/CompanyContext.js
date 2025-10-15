@@ -16,7 +16,7 @@ export const useCompany = () => {
 export const CompanyProvider = ({ children }) => {
   const [companyInfo, setCompanyInfo] = useState({
     name: 'RNBRIDGE Ltd',
-    email: 'info@rnbridge.com',
+    email: 'contact@rnbridge.co.uk',
     whatsapp: '+1234567890',
     location: 'London, UK',
     website: 'https://rnbridge.com',

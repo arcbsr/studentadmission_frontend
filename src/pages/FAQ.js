@@ -231,32 +231,32 @@ const FAQ = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12">
+    <div className="min-h-screen home-theme home-section-light py-12">
       <div className="max-w-6xl mx-auto px-4">
         {/* Enhanced Header */}
         <div className="text-center mb-16">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-6">
-            <HelpCircle className="w-8 h-8 text-primary-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style={{backgroundColor:'var(--color-light-gray)'}}>
+            <HelpCircle className="w-8 h-8" style={{color:'var(--color-crimson-red)'}} />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-6">
+          <h1 className="text-4xl font-bold home-title-dark mb-6">
             Frequently Asked Questions
           </h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg home-text-dark max-w-3xl mx-auto leading-relaxed">
             Find answers to common questions about our student admission services, 
             application process, and how we can help you achieve your academic goals.
           </p>
           
           {/* Quick Stats */}
           <div className="mt-8 flex flex-wrap justify-center gap-6">
-            <div className="flex items-center space-x-2 text-gray-600">
+            <div className="flex items-center space-x-2 home-text-dark">
               <BookOpen className="w-5 h-5" />
               <span className="text-sm font-medium">{faqs.length} Questions</span>
             </div>
-            <div className="flex items-center space-x-2 text-gray-600">
+            <div className="flex items-center space-x-2 home-text-dark">
               <Globe className="w-5 h-5" />
               <span className="text-sm font-medium">Global Support</span>
             </div>
-            <div className="flex items-center space-x-2 text-gray-600">
+            <div className="flex items-center space-x-2 home-text-dark">
               <Shield className="w-5 h-5" />
               <span className="text-sm font-medium">Trusted Service</span>
             </div>
@@ -265,16 +265,16 @@ const FAQ = () => {
 
         {/* Enhanced Admin Controls */}
         {isAdmin && (
-          <div className="mb-8 bg-white rounded-xl shadow-lg border border-gray-100 p-8">
+          <div className="mb-8 home-card rounded-xl p-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Manage FAQs</h2>
-                <p className="text-gray-600">Add, edit, or remove frequently asked questions</p>
+                <h2 className="text-xl font-bold home-title-dark mb-2">Manage FAQs</h2>
+                <p className="home-text-dark">Add, edit, or remove frequently asked questions</p>
               </div>
               {!isAdding && (
                 <button
                   onClick={() => setIsAdding(true)}
-                  className="btn-primary flex items-center gap-2 px-6 py-3 text-lg"
+                  className="home-btn-primary flex items-center gap-2 px-6 py-3 text-lg home-accent-border"
                 >
                   <Plus size={20} />
                   Add New FAQ
@@ -284,10 +284,10 @@ const FAQ = () => {
 
             {/* Enhanced Add New FAQ Form */}
             {isAdding && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border border-blue-100">
+              <div className="rounded-xl p-6 mb-6" style={{backgroundColor:'var(--color-light-gray)', border:'1px solid #e6e9ee'}}>
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label className="block text-base font-semibold text-gray-700 mb-3">
+                    <label className="block text-base font-semibold home-title-dark mb-3">
                       Question *
                     </label>
                     <textarea
@@ -299,7 +299,7 @@ const FAQ = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-base font-semibold text-gray-700 mb-3">
+                    <label className="block text-base font-semibold home-title-dark mb-3">
                       Answer *
                     </label>
                     <textarea
@@ -313,7 +313,7 @@ const FAQ = () => {
                   <div className="flex gap-4">
                     <button
                       onClick={handleAddFaq}
-                                              className="btn-primary flex items-center gap-2 px-6 py-2 text-base"
+                      className="home-btn-primary flex items-center gap-2 px-6 py-2 text-base home-accent-border"
                       >
                         <Save size={18} />
                         Save FAQ
@@ -323,7 +323,7 @@ const FAQ = () => {
                           setIsAdding(false);
                           setNewFaq({ question: '', answer: '' });
                         }}
-                        className="btn-secondary flex items-center gap-2 px-6 py-2 text-base"
+                        className="home-btn-secondary flex items-center gap-2 px-6 py-2 text-base"
                       >
                         <X size={18} />
                         Cancel
@@ -338,17 +338,17 @@ const FAQ = () => {
         {/* Enhanced FAQs List */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {faqs.map((faq) => (
-            <div key={faq.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
+            <div key={faq.id} className="home-card rounded-xl hover:shadow-xl transition-all duration-300">
               {/* FAQ Header */}
               <div className="p-8">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <HelpCircle className="w-5 h-5 text-primary-600" />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{backgroundColor:'var(--color-light-gray)'}}>
+                        <HelpCircle className="w-5 h-5" style={{color:'var(--color-crimson-red)'}} />
                       </div>
                       <div className="flex-1">
-                                                    <h3 className="text-lg font-bold text-gray-900 mb-2">
+                            <h3 className="text-lg font-bold home-title-dark mb-2">
                               {editingFaq?.id === faq.id ? (
                                 <textarea
                                   value={editingFaq.question}
@@ -363,7 +363,7 @@ const FAQ = () => {
                       </div>
                       <button
                         onClick={() => toggleFaq(faq.id)}
-                        className="text-gray-400 hover:text-primary-600 transition-colors p-2 rounded-full hover:bg-primary-50"
+                        className="text-gray-400 transition-colors p-2 rounded-full hover:bg-gray-100"
                       >
                         {expandedFaqs.has(faq.id) ? (
                           <ChevronUp size={24} />
@@ -378,7 +378,8 @@ const FAQ = () => {
                       <div className="flex items-center gap-3 mt-4">
                         <button
                           onClick={() => startEditing(faq)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                          className="text-sm font-medium flex items-center gap-2 px-3 py-1 rounded-lg transition-colors"
+                          style={{color:'var(--color-crimson-red)', backgroundColor:'var(--color-light-gray)'}}
                         >
                           <Edit size={16} />
                           Edit
@@ -386,7 +387,8 @@ const FAQ = () => {
                         {!faq.isDefault && (
                           <button
                             onClick={() => handleDeleteFaq(faq)}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                            className="text-sm font-medium flex items-center gap-2 px-3 py-1 rounded-lg transition-colors"
+                            style={{color:'#b91c1c', backgroundColor:'var(--color-light-gray)'}}
                           >
                             <Trash2 size={16} />
                             Delete
@@ -403,16 +405,16 @@ const FAQ = () => {
                     {/* Enhanced Edit Actions */}
                     {isAdmin && editingFaq?.id === faq.id && (
                       <div className="flex items-center gap-3 mt-4">
-                                                      <button
+                              <button
                                 onClick={() => handleEditFaq(faq)}
-                                className="btn-primary text-xs flex items-center gap-2 px-3 py-1"
+                                className="home-btn-primary text-xs flex items-center gap-2 px-3 py-1 home-accent-border"
                               >
                                 <Save size={14} />
                                 Save Changes
                               </button>
                               <button
                                 onClick={cancelEditing}
-                                className="btn-secondary text-xs flex items-center gap-2 px-3 py-1"
+                                className="home-btn-secondary text-xs flex items-center gap-2 px-3 py-1"
                               >
                                 <X size={14} />
                                 Cancel
@@ -460,29 +462,29 @@ const FAQ = () => {
         )}
 
         {/* Enhanced Contact Section */}
-        <div className="mt-16 bg-gradient-to-r from-primary-50 to-indigo-50 rounded-2xl shadow-lg border border-primary-100 p-12">
+        <div className="mt-16 rounded-2xl shadow-lg p-12 home-card">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-6">
-              <MessageSquare className="w-8 h-8 text-primary-600" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6" style={{backgroundColor:'var(--color-light-gray)'}}>
+              <MessageSquare className="w-8 h-8" style={{color:'var(--color-crimson-red)'}} />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+            <h3 className="text-2xl font-bold home-title-dark mb-4">
               Still Have Questions?
             </h3>
-            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg home-text-dark mb-8 max-w-2xl mx-auto">
               Can't find the answer you're looking for? Our support team is here to help you with any questions about our services.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                              <a
+                      <a
                   href="/contact"
-                  className="btn-primary text-base px-6 py-3 flex items-center justify-center gap-2"
+                className="home-btn-primary text-base px-6 py-3 flex items-center justify-center gap-2 home-accent-border"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Contact Us
                 </a>
-                <a
-                  href="/inquiry"
-                  className="btn-secondary text-base px-6 py-3 flex items-center justify-center gap-2"
-                >
+              <a
+                href="/inquiry"
+                className="home-btn-primary text-base px-6 py-3 flex items-center justify-center gap-2 home-accent-border"
+              >
                   <BookOpen className="w-4 h-4" />
                   Submit Inquiry
               </a>

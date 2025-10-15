@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCompany } from '../contexts/CompanyContext';
-import { Menu, X, User, LogOut, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useNavigationWithScroll } from '../utils/navigation';
 
 const Navbar = () => {
@@ -32,9 +32,13 @@ const Navbar = () => {
           <div className="flex items-center">
             <button 
               onClick={() => navigateWithScroll(isProperlyAuthenticated ? (userRole === 'agent' ? '/agent/dashboard' : '/admin/dashboard') : '/')}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-3"
             >
-              <GraduationCap className="w-8 h-8 text-primary-600" />
+              <img 
+                src="/rnbridge_logo.png" 
+                alt="RNBRIDGE Logo" 
+                className="w-10 h-10 object-contain"
+              />
               <span className="text-xl font-bold text-gray-900">{companyInfo.name}</span>
             </button>
           </div>
