@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+
+# Development files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Documentation
+*.md
+!README.md
+
+# Firebase rules (not needed for frontend)
+firebase-database-rules*.json
+deploy-firebase-rules.sh
+
+# Server configs
+nginx.conf
+server-ngnix.md
+
+# Debug files
+DEBUG_*.md
+EMERGENCY_FIX.md
+FIREBASE_*.md
+EMAILJS_*.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
