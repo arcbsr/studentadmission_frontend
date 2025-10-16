@@ -29,6 +29,11 @@ export const CompanyProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!database) {
+      setLoading(false);
+      return;
+    }
+    
     let unsubscribe;
     
     try {
