@@ -26,20 +26,22 @@ const Navbar = () => {
   const isProperlyAuthenticated = currentUser && userRole && currentUser.email && currentUser.uid;
 
   return (
-    <nav className="bg-white shadow-lg">
+    <nav className="bg-gradient-to-r from-white via-gray-50 to-white shadow-xl border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-20">
           <div className="flex items-center">
             <button 
               onClick={() => navigateWithScroll(isProperlyAuthenticated ? (userRole === 'agent' ? '/agent/dashboard' : '/admin/dashboard') : '/')}
-              className="flex items-center space-x-3"
+              className="flex items-center group transition-all duration-300 hover:scale-105"
             >
-              <img 
-                src="/rnbridge_logo.png" 
-                alt="RNBRIDGE Logo" 
-                className="w-10 h-10 object-contain"
-              />
-              <span className="text-xl font-bold text-gray-900">{companyInfo.name}</span>
+              <div className="relative">
+                <img 
+                  src="/rnbridge_logo.png" 
+                  alt="RNBRIDGE Logo" 
+                  className="w-16 h-16 object-contain drop-shadow-lg group-hover:drop-shadow-xl transition-all duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-purple-600/10 rounded-full blur-sm group-hover:blur-md transition-all duration-300"></div>
+              </div>
             </button>
           </div>
 
