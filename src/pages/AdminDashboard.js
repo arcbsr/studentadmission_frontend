@@ -31,7 +31,12 @@ import {
   ChevronDown,
   ChevronRight,
   FileCode,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  ToggleLeft,
+  ToggleRight,
+  Minus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { initializeUniversities } from '../utils/initializeUniversities';
@@ -86,6 +91,10 @@ const AdminDashboard = () => {
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [showJsonStructure, setShowJsonStructure] = useState(false);
+  const [parsedUniversities, setParsedUniversities] = useState([]);
+  const [showVisualEditor, setShowVisualEditor] = useState(false);
+  const [viewMode, setViewMode] = useState('single'); // 'single' or 'multiple'
+  const [expandedUniversities, setExpandedUniversities] = useState(new Set());
 
   // User management
   const [showUserForm, setShowUserForm] = useState(false);
@@ -636,6 +645,191 @@ const AdminDashboard = () => {
       isActive: university.isActive !== false
     });
     setShowUniversityForm(true);
+  };
+
+  // Visual Editor Functions
+  const parseJsonForVisualEditor = () => {
+    console.log('parseJsonForVisualEditor called');
+    setJsonError('');
+    
+    if (!jsonInput.trim()) {
+      setJsonError('Please enter JSON data');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(jsonInput);
+      console.log('JSON parsed successfully:', parsed);
+      let universitiesArray = [];
+      
+      if (Array.isArray(parsed)) {
+        universitiesArray = parsed;
+        setViewMode('multiple');
+      } else {
+        universitiesArray = [parsed];
+        setViewMode('single');
+      }
+
+      console.log('Universities array:', universitiesArray);
+
+      // For visual editor, we'll be more lenient with validation
+      // Just ensure basic structure exists
+      const validatedUniversities = [];
+      for (let i = 0; i < universitiesArray.length; i++) {
+        const university = universitiesArray[i];
+        
+        // Basic validation for visual editor
+        if (!university || typeof university !== 'object') {
+          setJsonError(`University ${i + 1}: Must be an object`);
+          return;
+        }
+
+        // Ensure required fields exist with defaults
+        const validatedUniversity = {
+          name: university.name || '',
+          country: university.country || '',
+          location: university.location || '',
+          rating: typeof university.rating === 'number' ? university.rating : 5,
+          students: university.students || '',
+          courses: Array.isArray(university.courses) ? university.courses : [],
+          description: university.description || '',
+          image: university.image || 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+          isActive: university.isActive !== undefined ? university.isActive : true
+        };
+
+        // Validate courses structure
+        if (validatedUniversity.courses.length > 0) {
+          validatedUniversity.courses = validatedUniversity.courses.map(course => {
+            if (typeof course === 'string') {
+              // Convert old format to new format
+              return {
+                programName: course,
+                degreeType: '',
+                tuition: '',
+                applicationFee: '',
+                duration: '',
+                successPrediction: '',
+                tags: []
+              };
+            } else if (typeof course === 'object' && course !== null) {
+              // Ensure new format has all required fields
+              return {
+                programName: course.programName || '',
+                degreeType: course.degreeType || '',
+                tuition: course.tuition || '',
+                applicationFee: course.applicationFee || '',
+                duration: course.duration || '',
+                successPrediction: course.successPrediction || '',
+                tags: Array.isArray(course.tags) ? course.tags : []
+              };
+            } else {
+              return {
+                programName: '',
+                degreeType: '',
+                tuition: '',
+                applicationFee: '',
+                duration: '',
+                successPrediction: '',
+                tags: []
+              };
+            }
+          });
+        }
+
+        validatedUniversities.push(validatedUniversity);
+      }
+
+      console.log('Validated universities:', validatedUniversities);
+      setParsedUniversities(validatedUniversities);
+      setShowVisualEditor(true);
+      console.log('Visual editor should now be visible');
+    } catch (error) {
+      console.error('JSON parsing error:', error);
+      setJsonError(`Invalid JSON format: ${error.message}`);
+    }
+  };
+
+  const toggleUniversityExpansion = (index) => {
+    const newExpanded = new Set(expandedUniversities);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedUniversities(newExpanded);
+  };
+
+  const updateUniversityInVisualEditor = (index, field, value) => {
+    const updatedUniversities = [...parsedUniversities];
+    updatedUniversities[index] = {
+      ...updatedUniversities[index],
+      [field]: value
+    };
+    setParsedUniversities(updatedUniversities);
+  };
+
+  const updateCourseInVisualEditor = (universityIndex, courseIndex, field, value) => {
+    const updatedUniversities = [...parsedUniversities];
+    updatedUniversities[universityIndex].courses[courseIndex] = {
+      ...updatedUniversities[universityIndex].courses[courseIndex],
+      [field]: value
+    };
+    setParsedUniversities(updatedUniversities);
+  };
+
+  const addCourseToUniversity = (universityIndex) => {
+    const updatedUniversities = [...parsedUniversities];
+    updatedUniversities[universityIndex].courses.push({
+      programName: '',
+      degreeType: '',
+      tuition: '',
+      applicationFee: '',
+      duration: '',
+      successPrediction: '',
+      tags: []
+    });
+    setParsedUniversities(updatedUniversities);
+  };
+
+  const removeCourseFromUniversity = (universityIndex, courseIndex) => {
+    const updatedUniversities = [...parsedUniversities];
+    updatedUniversities[universityIndex].courses.splice(courseIndex, 1);
+    setParsedUniversities(updatedUniversities);
+  };
+
+  const saveUniversitiesFromVisualEditor = async () => {
+    try {
+      let successCount = 0;
+      
+      for (const university of parsedUniversities) {
+        try {
+          const newUniversityRef = push(ref(database, 'universities'));
+          await set(newUniversityRef, {
+            ...university,
+            image: university.image || 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+            isActive: university.isActive !== undefined ? university.isActive : true,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          });
+          successCount++;
+        } catch (error) {
+          console.error('Error adding university:', error);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully added ${successCount} universit${successCount === 1 ? 'y' : 'ies'}!`);
+        setShowJsonUniversityForm(false);
+        setShowVisualEditor(false);
+        setJsonInput('');
+        setParsedUniversities([]);
+        setExpandedUniversities(new Set());
+      } else {
+        toast.error('Failed to add universities');
+      }
+    } catch (error) {
+      toast.error('Error saving universities');
+    }
   };
 
   const handleCompanyUpdate = async () => {
@@ -2609,47 +2803,52 @@ const AdminDashboard = () => {
       {/* JSON University Form Modal - AT COMPONENT ROOT */}
       {showJsonUniversityForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
                 Add University from JSON
               </h3>
-                <button
-                  onClick={() => {
-                    setShowJsonUniversityForm(false);
-                    setJsonInput('');
-                    setJsonError('');
-                    setShowJsonStructure(false);
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <button
+                onClick={() => {
+                  setShowJsonUniversityForm(false);
+                  setJsonInput('');
+                  setJsonError('');
+                  setShowJsonStructure(false);
+                  setShowVisualEditor(false);
+                  setParsedUniversities([]);
+                  setExpandedUniversities(new Set());
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="space-y-4">
-              {/* JSON Structure Display */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <button
-                  onClick={() => setShowJsonStructure(!showJsonStructure)}
-                  className="flex items-center justify-between w-full text-left"
-                >
-                  <h4 className="text-sm font-medium text-gray-700">
-                    JSON Structure (Supports Single or Multiple Universities)
-                  </h4>
-                  {showJsonStructure ? (
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-500" />
-                  )}
-                </button>
-                
-                {showJsonStructure && (
-                  <div className="space-y-4 mt-4">
-                    {/* Single University Format */}
-                    <div>
-                      <h5 className="text-xs font-semibold text-gray-600 mb-1">Single University:</h5>
-                      <pre className="text-xs text-gray-600 bg-white p-3 rounded border overflow-x-auto">
+            {!showVisualEditor ? (
+              // JSON Input Mode
+              <div className="space-y-4">
+                {/* JSON Structure Display */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <button
+                    onClick={() => setShowJsonStructure(!showJsonStructure)}
+                    className="flex items-center justify-between w-full text-left"
+                  >
+                    <h4 className="text-sm font-medium text-gray-700">
+                      JSON Structure (Supports Single or Multiple Universities)
+                    </h4>
+                    {showJsonStructure ? (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-500" />
+                    )}
+                  </button>
+                  
+                  {showJsonStructure && (
+                    <div className="space-y-4 mt-4">
+                      {/* Single University Format */}
+                      <div>
+                        <h5 className="text-xs font-semibold text-gray-600 mb-1">Single University:</h5>
+                        <pre className="text-xs text-gray-600 bg-white p-3 rounded border overflow-x-auto">
 {`{
   "name": "University Name",
   "country": "Country Name", 
@@ -2671,13 +2870,13 @@ const AdminDashboard = () => {
   "image": "https://example.com/image.jpg",
   "isActive": true
 }`}
-                      </pre>
-                    </div>
+                        </pre>
+                      </div>
 
-                    {/* Multiple Universities Format */}
-                    <div>
-                      <h5 className="text-xs font-semibold text-gray-600 mb-1">Multiple Universities (Array):</h5>
-                      <pre className="text-xs text-gray-600 bg-white p-3 rounded border overflow-x-auto">
+                      {/* Multiple Universities Format */}
+                      <div>
+                        <h5 className="text-xs font-semibold text-gray-600 mb-1">Multiple Universities (Array):</h5>
+                        <pre className="text-xs text-gray-600 bg-white p-3 rounded border overflow-x-auto">
 {`[
   {
     "name": "University 1",
@@ -2698,65 +2897,458 @@ const AdminDashboard = () => {
     "description": "Description 2..."
   }
 ]`}
-                      </pre>
+                        </pre>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500 mt-2">
+                        Note: Courses can also be simple strings for backward compatibility.
+                      </p>
                     </div>
-                    
-                    <p className="text-xs text-gray-500 mt-2">
-                      Note: Courses can also be simple strings for backward compatibility.
-                    </p>
+                  )}
+                </div>
+
+                {/* JSON Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    JSON Data *
+                  </label>
+                  <textarea
+                    value={jsonInput}
+                    onChange={(e) => {
+                      setJsonInput(e.target.value);
+                      setJsonError('');
+                    }}
+                    className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+                    placeholder="Paste your university JSON data here..."
+                  />
+                </div>
+
+                {/* Error Display */}
+                {jsonError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                      <span className="text-sm text-red-700 font-medium">Error:</span>
+                    </div>
+                    <p className="text-sm text-red-600 mt-1">{jsonError}</p>
                   </div>
                 )}
-              </div>
 
-              {/* JSON Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  JSON Data *
-                </label>
-                <textarea
-                  value={jsonInput}
-                  onChange={(e) => {
-                    setJsonInput(e.target.value);
-                    setJsonError('');
-                  }}
-                  className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
-                  placeholder="Paste your university JSON data here..."
-                />
-              </div>
-
-              {/* Error Display */}
-              {jsonError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <div className="flex items-center">
-                    <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
-                    <span className="text-sm text-red-700 font-medium">Error:</span>
-                  </div>
-                  <p className="text-sm text-red-600 mt-1">{jsonError}</p>
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowJsonUniversityForm(false);
+                      setJsonInput('');
+                      setJsonError('');
+                      setShowJsonStructure(false);
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const testJson = `[
+  {
+    "name": "Massey University",
+    "country": "New Zealand",
+    "location": "Greater London, UK",
+    "rating": 5,
+    "students": "24,000+",
+    "courses": [
+      {
+        "programName": "Master of Science - Big Data Technologies (Quantitative)",
+        "degreeType": "Master's Degree",
+        "tuition": "£18,100 GBP",
+        "applicationFee": "Free",
+        "duration": "12 months",
+        "successPrediction": "Jan 2026: High, Feb 2026: Average, Sep 2026: High",
+        "tags": ["High Job Demand"]
+      }
+    ],
+    "description": "Massey University offers specialized Master's programs in data science, environmental management, and fashion business with strong industry connections and practical outcomes.",
+    "image": "https://www.massey.ac.nz/logo.png",
+    "isActive": true
+  }
+]`;
+                      setJsonInput(testJson);
+                    }}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+                  >
+                    <FileCode className="w-4 h-4 mr-2" />
+                    Load Test Data
+                  </button>
+                  <button
+                    onClick={parseJsonForVisualEditor}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview & Edit
+                  </button>
+                  <button
+                    onClick={addUniversityFromJson}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Directly
+                  </button>
                 </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowJsonUniversityForm(false);
-                    setJsonInput('');
-                    setJsonError('');
-                    setShowJsonStructure(false);
-                  }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addUniversityFromJson}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add University/ies
-                </button>
               </div>
-            </div>
+            ) : (
+              // Visual Editor Mode
+              <div className="space-y-4">
+                {/* Header with View Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h4 className="text-md font-medium text-gray-800">
+                      Visual Editor ({parsedUniversities.length} universit{parsedUniversities.length === 1 ? 'y' : 'ies'})
+                    </h4>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600">View Mode:</span>
+                      <div className="flex bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setViewMode('single')}
+                          className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                            viewMode === 'single' 
+                              ? 'bg-white text-gray-900 shadow-sm' 
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Single
+                        </button>
+                        <button
+                          onClick={() => setViewMode('multiple')}
+                          className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                            viewMode === 'multiple' 
+                              ? 'bg-white text-gray-900 shadow-sm' 
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Multiple
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowVisualEditor(false);
+                      setParsedUniversities([]);
+                      setExpandedUniversities(new Set());
+                    }}
+                    className="text-gray-500 hover:text-gray-700 flex items-center"
+                  >
+                    <EyeOff className="w-4 h-4 mr-1" />
+                    Back to JSON
+                  </button>
+                </div>
+
+                {/* University List */}
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {parsedUniversities.map((university, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg">
+                      {/* University Header */}
+                      <div className="bg-gray-50 p-4 rounded-t-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={() => toggleUniversityExpansion(index)}
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              {expandedUniversities.has(index) ? (
+                                <ChevronDown className="w-5 h-5" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5" />
+                              )}
+                            </button>
+                            {/* University Image Thumbnail */}
+                            <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-200 flex-shrink-0">
+                              <img
+                                src={university.image || 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'}
+                                alt="University"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80';
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                value={university.name}
+                                onChange={(e) => updateUniversityInVisualEditor(index, 'name', e.target.value)}
+                                className="text-lg font-semibold bg-transparent border-none p-0 focus:outline-none focus:ring-0"
+                                placeholder="University Name"
+                              />
+                              <div className="flex items-center space-x-2 mt-1">
+                                <span className="text-sm text-gray-500">{university.country}</span>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-sm text-gray-500">{university.location}</span>
+                                <span className="text-gray-300">•</span>
+                                <div className="flex items-center space-x-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <span
+                                      key={i}
+                                      className={`text-sm ${i < university.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                                    >
+                                      ★
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">
+                              {university.courses?.length || 0} courses
+                            </span>
+                            <div className="flex items-center space-x-1">
+                              <span className="text-sm text-gray-600">Active:</span>
+                              <button
+                                onClick={() => updateUniversityInVisualEditor(index, 'isActive', !university.isActive)}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                {university.isActive ? (
+                                  <ToggleRight className="w-5 h-5 text-green-500" />
+                                ) : (
+                                  <ToggleLeft className="w-5 h-5 text-gray-400" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* University Details (Collapsible) */}
+                      {expandedUniversities.has(index) && (
+                        <div className="p-4 space-y-4">
+                          {/* Basic Info */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                              <input
+                                type="text"
+                                value={university.country}
+                                onChange={(e) => updateUniversityInVisualEditor(index, 'country', e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="Country"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                              <input
+                                type="text"
+                                value={university.location}
+                                onChange={(e) => updateUniversityInVisualEditor(index, 'location', e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="City, State/Province"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="5"
+                                value={university.rating}
+                                onChange={(e) => updateUniversityInVisualEditor(index, 'rating', parseInt(e.target.value))}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Students</label>
+                              <input
+                                type="text"
+                                value={university.students}
+                                onChange={(e) => updateUniversityInVisualEditor(index, 'students', e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="e.g., 24,000+"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea
+                              value={university.description}
+                              onChange={(e) => updateUniversityInVisualEditor(index, 'description', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                              rows="3"
+                              placeholder="University description..."
+                            />
+                          </div>
+
+                          {/* Image URL */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="url"
+                                value={university.image}
+                                onChange={(e) => updateUniversityInVisualEditor(index, 'image', e.target.value)}
+                                className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="https://example.com/image.jpg"
+                              />
+                              <button
+                                onClick={() => updateUniversityInVisualEditor(index, 'image', 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80')}
+                                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
+                              >
+                                Use Default
+                              </button>
+                            </div>
+                            {/* Image Preview */}
+                            <div className="mt-2">
+                              <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden border">
+                                <img
+                                  src={university.image || 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'}
+                                  alt="University preview"
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.src = 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80';
+                                  }}
+                                />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {university.image ? 'Current image preview' : 'Default university image'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Courses Section */}
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="text-sm font-medium text-gray-700">Courses ({university.courses?.length || 0})</h5>
+                              <button
+                                onClick={() => addCourseToUniversity(index)}
+                                className="px-3 py-1 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors flex items-center"
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Add Course
+                              </button>
+                            </div>
+
+                            <div className="space-y-3">
+                              {university.courses?.map((course, courseIndex) => (
+                                <div key={courseIndex} className="bg-gray-50 p-3 rounded-md">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-gray-600">Course {courseIndex + 1}</span>
+                                    <button
+                                      onClick={() => removeCourseFromUniversity(index, courseIndex)}
+                                      className="text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Program Name</label>
+                                      <input
+                                        type="text"
+                                        value={course.programName}
+                                        onChange={(e) => updateCourseInVisualEditor(index, courseIndex, 'programName', e.target.value)}
+                                        className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="Program Name"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Degree Type</label>
+                                      <input
+                                        type="text"
+                                        value={course.degreeType}
+                                        onChange={(e) => updateCourseInVisualEditor(index, courseIndex, 'degreeType', e.target.value)}
+                                        className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="Master's Degree"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Tuition</label>
+                                      <input
+                                        type="text"
+                                        value={course.tuition}
+                                        onChange={(e) => updateCourseInVisualEditor(index, courseIndex, 'tuition', e.target.value)}
+                                        className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="£18,100 GBP"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Application Fee</label>
+                                      <input
+                                        type="text"
+                                        value={course.applicationFee}
+                                        onChange={(e) => updateCourseInVisualEditor(index, courseIndex, 'applicationFee', e.target.value)}
+                                        className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="Free"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Duration</label>
+                                      <input
+                                        type="text"
+                                        value={course.duration}
+                                        onChange={(e) => updateCourseInVisualEditor(index, courseIndex, 'duration', e.target.value)}
+                                        className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="12 months"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Success Prediction</label>
+                                      <input
+                                        type="text"
+                                        value={course.successPrediction}
+                                        onChange={(e) => updateCourseInVisualEditor(index, courseIndex, 'successPrediction', e.target.value)}
+                                        className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="Jan 2026: High, Feb 2026: Average"
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="mt-2">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Tags (comma-separated)</label>
+                                    <input
+                                      type="text"
+                                      value={Array.isArray(course.tags) ? course.tags.join(', ') : course.tags}
+                                      onChange={(e) => {
+                                        const tags = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                                        updateCourseInVisualEditor(index, courseIndex, 'tags', tags);
+                                      }}
+                                      className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                      placeholder="High Job Demand, Fast Acceptance"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowVisualEditor(false);
+                      setParsedUniversities([]);
+                      setExpandedUniversities(new Set());
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveUniversitiesFromVisualEditor}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save {parsedUniversities.length} Universit{parsedUniversities.length === 1 ? 'y' : 'ies'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
