@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { database } from '../firebase/config';
 import { ref, onValue } from 'firebase/database';
-import { Search, MapPin, Star, Users, Building } from 'lucide-react';
+import { 
+  Search, 
+  MapPin, 
+  Star, 
+  Users, 
+  Building, 
+  X, 
+  BookOpen, 
+  Clock, 
+  DollarSign, 
+  Award, 
+  Tag,
+  ExternalLink,
+  CheckCircle,
+  TrendingUp,
+  Globe
+} from 'lucide-react';
 
 const Universities = () => {
   const [universities, setUniversities] = useState([]);
@@ -9,6 +25,8 @@ const Universities = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedRating, setSelectedRating] = useState('');
+  const [selectedUniversity, setSelectedUniversity] = useState(null);
+  const [showUniversityModal, setShowUniversityModal] = useState(false);
 
   useEffect(() => {
     const universitiesRef = ref(database, 'universities');
@@ -34,6 +52,85 @@ const Universities = () => {
 
   // Get unique countries for filter
   const countries = [...new Set(universities.map(uni => uni.country))].sort();
+
+  // Handle university selection
+  const handleUniversityClick = (university) => {
+    setSelectedUniversity(university);
+    setShowUniversityModal(true);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setShowUniversityModal(false);
+    setSelectedUniversity(null);
+  };
+
+  // Handle Apply Now email
+  const handleApplyNow = (university) => {
+    const subject = `Application Request - ${university.name}`;
+    const body = `Dear RN Bridge Admissions Team,
+
+I am writing to express my interest in applying to ${university.name} through your services.
+
+University Details:
+- University: ${university.name}
+- Location: ${university.location}, ${university.country}
+- Rating: ${university.rating}/5 stars
+
+I would like to request assistance with my application process and would appreciate any guidance you can provide regarding:
+- Application requirements and deadlines
+- Document preparation and submission
+- Visa assistance and requirements
+- Scholarship opportunities
+
+Please provide me with detailed information about the application process and next steps.
+
+Thank you for your time and assistance.
+
+Best regards,
+[Your Name]
+[Your Email]
+[Your Phone Number]
+[Your Country]`;
+
+    const mailtoLink = `mailto:admissionrequest@rnbridge.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink);
+  };
+
+  // Handle Request Information email
+  const handleRequestInfo = (university) => {
+    const subject = `Information Request - ${university.name}`;
+    const body = `Dear RN Bridge Admissions Team,
+
+I am interested in learning more about ${university.name} and the programs available through your services.
+
+University Details:
+- University: ${university.name}
+- Location: ${university.location}, ${university.country}
+- Rating: ${university.rating}/5 stars
+- Student Body: ${university.students || 'N/A'}
+
+I would like to request the following information:
+- Detailed program information and course offerings
+- Admission requirements and eligibility criteria
+- Tuition fees and scholarship opportunities
+- Application deadlines and process
+- Student support services
+- Campus facilities and accommodation options
+
+Please send me comprehensive information about this university and the programs that would be suitable for my academic goals.
+
+Thank you for your assistance.
+
+Best regards,
+[Your Name]
+[Your Email]
+[Your Phone Number]
+[Your Country]`;
+
+    const mailtoLink = `mailto:admissionrequest@rnbridge.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink);
+  };
 
   // Filter universities based on search and filters
   const filteredUniversities = universities.filter(university => {
@@ -144,43 +241,54 @@ const Universities = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredUniversities.map((university) => (
-              <div key={university.id} className="home-card overflow-hidden hover:shadow-lg transition-shadow">
+              <div 
+                key={university.id} 
+                className="home-card overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
+                onClick={() => handleUniversityClick(university)}
+              >
                 {university.image && (
-                  <div className="h-48 bg-gray-200">
+                  <div className="h-48 bg-gray-200 relative overflow-hidden">
                     <img
                       src={university.image}
                       alt={university.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                       onError={(e) => {
                         e.target.style.display = 'none';
                       }}
                     />
+                    <div className="absolute top-3 right-3 bg-white bg-opacity-90 rounded-full px-2 py-1 flex items-center">
+                      <Star className="w-3 h-3 text-yellow-500 fill-current mr-1" />
+                      <span className="text-xs font-bold text-gray-800">
+                        {university.rating}
+                      </span>
+                    </div>
                   </div>
                 )}
                 
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold home-title-dark">
+                    <h3 className="text-lg font-semibold home-title-dark line-clamp-2">
                       {university.name}
                     </h3>
-                    <div className="flex items-center">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      <span className="ml-1 text-sm font-medium home-title-dark">
-                        {university.rating}
-                      </span>
-                    </div>
                   </div>
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-sm home-text-dark">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      <span>{university.location}, {university.country}</span>
+                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="truncate">{university.location}, {university.country}</span>
                     </div>
                     
                     {university.students && (
                       <div className="flex items-center text-sm home-text-dark">
-                        <Users className="w-4 h-4 mr-2" />
+                        <Users className="w-4 h-4 mr-2 flex-shrink-0" />
                         <span>{university.students} students</span>
+                      </div>
+                    )}
+
+                    {university.courses && (
+                      <div className="flex items-center text-sm home-text-dark">
+                        <BookOpen className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span>{Array.isArray(university.courses) ? university.courses.length : 0} programs available</span>
                       </div>
                     )}
                   </div>
@@ -205,8 +313,9 @@ const Universities = () => {
                       ))}
                     </div>
                     
-                    <button className="home-btn-secondary text-sm font-medium px-3 py-1">
-                      Learn More
+                    <button className="home-btn-primary text-sm font-medium px-4 py-2 rounded-lg flex items-center hover:shadow-md transition-all">
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      View Details
                     </button>
                   </div>
                 </div>
@@ -260,6 +369,222 @@ const Universities = () => {
           </div>
         </div>
       </div>
+
+      {/* University Details Modal */}
+      {showUniversityModal && selectedUniversity && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                    {selectedUniversity.name}
+                  </h2>
+                  <div className="flex items-center space-x-4 text-gray-600">
+                    <div className="flex items-center">
+                      <MapPin className="w-5 h-5 mr-2" />
+                      <span>{selectedUniversity.location}, {selectedUniversity.country}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Star className="w-5 h-5 text-yellow-500 fill-current mr-1" />
+                      <span className="font-semibold">{selectedUniversity.rating}/5</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-8 h-8" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {/* University Image and Basic Info */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div className="lg:col-span-2">
+                  {selectedUniversity.image && (
+                    <div className="h-64 bg-gray-200 rounded-lg overflow-hidden mb-6">
+                      <img
+                        src={selectedUniversity.image}
+                        alt={selectedUniversity.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="prose max-w-none">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3">About This University</h3>
+                    <p className="text-gray-700 leading-relaxed">
+                      {selectedUniversity.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Quick Stats */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">University Stats</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-gray-600">
+                          <Users className="w-5 h-5 mr-2" />
+                          <span>Student Body</span>
+                        </div>
+                        <span className="font-semibold text-gray-900">{selectedUniversity.students || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-gray-600">
+                          <BookOpen className="w-5 h-5 mr-2" />
+                          <span>Programs</span>
+                        </div>
+                        <span className="font-semibold text-gray-900">
+                          {Array.isArray(selectedUniversity.courses) ? selectedUniversity.courses.length : 0}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-gray-600">
+                          <Globe className="w-5 h-5 mr-2" />
+                          <span>Country</span>
+                        </div>
+                        <span className="font-semibold text-gray-900">{selectedUniversity.country}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rating */}
+                  <div className="bg-gradient-to-br from-yellow-50 to-orange-100 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Rating</h3>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-1 mb-2">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-6 h-6 ${
+                              i < Math.floor(selectedUniversity.rating)
+                                ? 'text-yellow-500 fill-current'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-2xl font-bold text-gray-900">
+                        {selectedUniversity.rating}/5
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Programs Section */}
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6">Available Programs</h3>
+                {selectedUniversity.courses && Array.isArray(selectedUniversity.courses) ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedUniversity.courses.map((course, index) => (
+                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                        {typeof course === 'object' && course !== null ? (
+                          // New detailed format
+                          <div>
+                            <div className="flex items-start justify-between mb-3">
+                              <h4 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                                {course.programName}
+                              </h4>
+                              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap ml-2">
+                                {course.degreeType}
+                              </span>
+                            </div>
+                            
+                            <div className="space-y-2 mb-4">
+                              <div className="flex items-center text-sm text-gray-600">
+                                <DollarSign className="w-4 h-4 mr-2" />
+                                <span className="font-medium">Tuition: {course.tuition}</span>
+                              </div>
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Clock className="w-4 h-4 mr-2" />
+                                <span>Duration: {course.duration}</span>
+                              </div>
+                              <div className="flex items-center text-sm text-gray-600">
+                                <span className="mr-2">Application Fee:</span>
+                                <span className={course.applicationFee === 'Free' ? 'text-green-600 font-medium' : 'text-gray-900'}>
+                                  {course.applicationFee}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <TrendingUp className="w-4 h-4 mr-2" />
+                                <span className={`font-medium ${
+                                  course.successPrediction === 'Very High' ? 'text-green-600' :
+                                  course.successPrediction === 'High' ? 'text-blue-600' :
+                                  course.successPrediction === 'Average' ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>
+                                  Success Rate: {course.successPrediction}
+                                </span>
+                              </div>
+                            </div>
+
+                            {course.tags && course.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {course.tags.map((tag, tagIndex) => (
+                                  <span 
+                                    key={tagIndex}
+                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                                  >
+                                    <Tag className="w-3 h-3 mr-1" />
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          // Old simple format
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                              {course}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              Contact us for detailed program information including tuition, duration, and requirements.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No program information available at this time.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6 border-t border-gray-200">
+                <button 
+                  onClick={() => handleApplyNow(selectedUniversity)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors flex items-center justify-center"
+                >
+                  <ExternalLink className="w-5 h-5 mr-2" />
+                  Apply Now
+                </button>
+                <button 
+                  onClick={() => handleRequestInfo(selectedUniversity)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-8 rounded-lg transition-colors flex items-center justify-center"
+                >
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Request Information
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -28,7 +28,10 @@ import {
   MessageSquare,
   HelpCircle,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  ChevronRight,
+  FileCode,
+  AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { initializeUniversities } from '../utils/initializeUniversities';
@@ -67,6 +70,7 @@ const AdminDashboard = () => {
   
   // University management
   const [showUniversityForm, setShowUniversityForm] = useState(false);
+  const [showJsonUniversityForm, setShowJsonUniversityForm] = useState(false);
   const [editingUniversity, setEditingUniversity] = useState(null);
   const [universityForm, setUniversityForm] = useState({
     name: '',
@@ -79,6 +83,9 @@ const AdminDashboard = () => {
     image: '',
     isActive: true
   });
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonError, setJsonError] = useState('');
+  const [showJsonStructure, setShowJsonStructure] = useState(false);
 
   // User management
   const [showUserForm, setShowUserForm] = useState(false);
@@ -396,6 +403,222 @@ const AdminDashboard = () => {
           } catch (error) {
       toast.error('Failed to delete university.');
     }
+    }
+  };
+
+  // JSON University functions
+  const validateUniversityJson = (jsonString) => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      
+      // Check if it's an object or array
+      if (typeof parsed !== 'object' || parsed === null) {
+        return { valid: false, error: 'JSON must be an object or array' };
+      }
+
+      // Handle array of universities
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          return { valid: false, error: 'Array cannot be empty' };
+        }
+
+        // Validate each university in the array
+        for (let i = 0; i < parsed.length; i++) {
+          const university = parsed[i];
+          const validation = validateSingleUniversity(university, i + 1);
+          if (!validation.valid) {
+            return validation;
+          }
+        }
+
+        return { valid: true, data: parsed, isArray: true };
+      }
+
+      // Handle single university object
+      const validation = validateSingleUniversity(parsed);
+      return validation;
+    } catch (error) {
+      return { valid: false, error: `Invalid JSON format: ${error.message}` };
+    }
+  };
+
+  // Helper function to validate a single university
+  const validateSingleUniversity = (university, universityIndex = null) => {
+    const prefix = universityIndex ? `University ${universityIndex}: ` : '';
+    
+    // Check if it's an object
+    if (typeof university !== 'object' || university === null) {
+      return { valid: false, error: `${prefix}Must be an object` };
+    }
+
+    // Check required fields
+    const requiredFields = ['name', 'country', 'location', 'rating', 'students', 'courses', 'description'];
+    const missingFields = requiredFields.filter(field => !university.hasOwnProperty(field) || university[field] === null || university[field] === undefined);
+
+    if (missingFields.length > 0) {
+      return { valid: false, error: `${prefix}Missing required fields: ${missingFields.join(', ')}` };
+    }
+
+    // Validate field types
+    if (typeof university.name !== 'string' || university.name.trim() === '') {
+      return { valid: false, error: `${prefix}Name must be a non-empty string` };
+    }
+
+    if (typeof university.country !== 'string' || university.country.trim() === '') {
+      return { valid: false, error: `${prefix}Country must be a non-empty string` };
+    }
+
+    if (typeof university.location !== 'string' || university.location.trim() === '') {
+      return { valid: false, error: `${prefix}Location must be a non-empty string` };
+    }
+
+    if (typeof university.rating !== 'number' || university.rating < 1 || university.rating > 5) {
+      return { valid: false, error: `${prefix}Rating must be a number between 1 and 5` };
+    }
+
+    if (typeof university.students !== 'string' || university.students.trim() === '') {
+      return { valid: false, error: `${prefix}Students must be a non-empty string` };
+    }
+
+    if (!Array.isArray(university.courses) || university.courses.length === 0) {
+      return { valid: false, error: `${prefix}Courses must be a non-empty array` };
+    }
+
+    // Validate course structure (support both old and new formats)
+    for (let i = 0; i < university.courses.length; i++) {
+      const course = university.courses[i];
+
+      // Check if it's the new detailed format
+      if (typeof course === 'object' && course !== null) {
+        // New format: object with detailed course information
+        const requiredCourseFields = ['programName', 'degreeType', 'tuition', 'applicationFee', 'duration', 'successPrediction', 'tags'];
+        const missingCourseFields = requiredCourseFields.filter(field => !course.hasOwnProperty(field) || course[field] === null || course[field] === undefined);
+
+        if (missingCourseFields.length > 0) {
+          return { valid: false, error: `${prefix}Course ${i + 1} missing required fields: ${missingCourseFields.join(', ')}` };
+        }
+
+        // Validate course field types
+        if (typeof course.programName !== 'string' || course.programName.trim() === '') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: programName must be a non-empty string` };
+        }
+
+        if (typeof course.degreeType !== 'string' || course.degreeType.trim() === '') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: degreeType must be a non-empty string` };
+        }
+        
+        if (typeof course.tuition !== 'string' || course.tuition.trim() === '') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: tuition must be a non-empty string` };
+        }
+        
+        if (typeof course.applicationFee !== 'string') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: applicationFee must be a string` };
+        }
+        
+        if (typeof course.duration !== 'string' || course.duration.trim() === '') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: duration must be a non-empty string` };
+        }
+        
+        if (typeof course.successPrediction !== 'string' || course.successPrediction.trim() === '') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: successPrediction must be a non-empty string` };
+        }
+        
+        if (!Array.isArray(course.tags)) {
+          return { valid: false, error: `${prefix}Course ${i + 1}: tags must be an array` };
+        }
+      } else if (typeof course === 'string') {
+        // Old format: simple string array - this is still supported
+        if (course.trim() === '') {
+          return { valid: false, error: `${prefix}Course ${i + 1}: course name cannot be empty` };
+        }
+      } else {
+        return { valid: false, error: `${prefix}Course ${i + 1}: must be either a string or an object with detailed course information` };
+      }
+    }
+    
+    if (typeof university.description !== 'string' || university.description.trim() === '') {
+      return { valid: false, error: `${prefix}Description must be a non-empty string` };
+    }
+
+    // Optional fields validation
+    if (university.image && typeof university.image !== 'string') {
+      return { valid: false, error: `${prefix}Image must be a string (URL)` };
+    }
+    
+    if (university.isActive !== undefined && typeof university.isActive !== 'boolean') {
+      return { valid: false, error: `${prefix}isActive must be a boolean` };
+    }
+
+    return { valid: true, data: university };
+  };
+
+  const addUniversityFromJson = async () => {
+    setJsonError('');
+    
+    if (!jsonInput.trim()) {
+      setJsonError('Please enter JSON data');
+      return;
+    }
+
+    const validation = validateUniversityJson(jsonInput);
+    
+    if (!validation.valid) {
+      setJsonError(validation.error);
+      return;
+    }
+
+    try {
+      if (validation.isArray) {
+        // Handle multiple universities
+        const universities = validation.data;
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const university of universities) {
+          try {
+            const newUniversityRef = push(ref(database, 'universities'));
+            await set(newUniversityRef, {
+              ...university,
+              image: university.image || 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+              isActive: university.isActive !== undefined ? university.isActive : true,
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            });
+            successCount++;
+          } catch (error) {
+            console.error(`Error adding university ${university.name}:`, error);
+            errorCount++;
+          }
+        }
+
+        setJsonInput('');
+        setShowJsonUniversityForm(false);
+        
+        if (successCount === universities.length) {
+          toast.success(`${successCount} universities added successfully!`);
+        } else if (successCount > 0) {
+          toast.success(`${successCount} universities added successfully. ${errorCount} failed.`);
+        } else {
+          toast.error('Failed to add any universities.');
+        }
+      } else {
+        // Handle single university
+        const newUniversityRef = push(ref(database, 'universities'));
+        await set(newUniversityRef, {
+          ...validation.data,
+          image: validation.data.image || 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80',
+          isActive: validation.data.isActive !== undefined ? validation.data.isActive : true,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+        
+        toast.success('University added successfully!');
+        setShowJsonUniversityForm(false);
+        setJsonInput('');
+      }
+    } catch (error) {
+      toast.error('Failed to add university.');
+      setJsonError('Database error: ' + error.message);
     }
   };
 
@@ -1399,6 +1622,18 @@ const AdminDashboard = () => {
                     <Plus className="w-4 h-4 mr-2" />
                     Add University
                   </button>
+                  <button
+                    onClick={() => {
+                      setShowJsonUniversityForm(true);
+                      setJsonInput('');
+                      setJsonError('');
+                      setShowJsonStructure(false);
+                    }}
+                    className="btn-secondary flex items-center"
+                  >
+                    <FileCode className="w-4 h-4 mr-2" />
+                    Add from JSON
+                  </button>
                 </div>
               </div>
 
@@ -1670,6 +1905,7 @@ const AdminDashboard = () => {
                   Add User
                 </button>
               </div>
+
 
               {/* User Form Modal */}
               {showUserForm && (
@@ -2369,6 +2605,161 @@ const AdminDashboard = () => {
         onClose={closeMessageModal}
         inquiry={messageModal.inquiry}
       />
+
+      {/* JSON University Form Modal - AT COMPONENT ROOT */}
+      {showJsonUniversityForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                Add University from JSON
+              </h3>
+                <button
+                  onClick={() => {
+                    setShowJsonUniversityForm(false);
+                    setJsonInput('');
+                    setJsonError('');
+                    setShowJsonStructure(false);
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* JSON Structure Display */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <button
+                  onClick={() => setShowJsonStructure(!showJsonStructure)}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <h4 className="text-sm font-medium text-gray-700">
+                    JSON Structure (Supports Single or Multiple Universities)
+                  </h4>
+                  {showJsonStructure ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+                
+                {showJsonStructure && (
+                  <div className="space-y-4 mt-4">
+                    {/* Single University Format */}
+                    <div>
+                      <h5 className="text-xs font-semibold text-gray-600 mb-1">Single University:</h5>
+                      <pre className="text-xs text-gray-600 bg-white p-3 rounded border overflow-x-auto">
+{`{
+  "name": "University Name",
+  "country": "Country Name", 
+  "location": "City, State/Province",
+  "rating": 5,
+  "students": "24,000+",
+  "courses": [
+    {
+      "programName": "Master of Laws - International Law",
+      "degreeType": "Master's",
+      "tuition": "£17,500 GBP",
+      "applicationFee": "Free",
+      "duration": "12 months",
+      "successPrediction": "Very High",
+      "tags": ["Scholarships", "Prime", "Fast Acceptance"]
+    }
+  ],
+  "description": "University description...",
+  "image": "https://example.com/image.jpg",
+  "isActive": true
+}`}
+                      </pre>
+                    </div>
+
+                    {/* Multiple Universities Format */}
+                    <div>
+                      <h5 className="text-xs font-semibold text-gray-600 mb-1">Multiple Universities (Array):</h5>
+                      <pre className="text-xs text-gray-600 bg-white p-3 rounded border overflow-x-auto">
+{`[
+  {
+    "name": "University 1",
+    "country": "Country 1",
+    "location": "City 1",
+    "rating": 5,
+    "students": "24,000+",
+    "courses": [...],
+    "description": "Description 1..."
+  },
+  {
+    "name": "University 2",
+    "country": "Country 2", 
+    "location": "City 2",
+    "rating": 4,
+    "students": "18,000+",
+    "courses": [...],
+    "description": "Description 2..."
+  }
+]`}
+                      </pre>
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mt-2">
+                      Note: Courses can also be simple strings for backward compatibility.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* JSON Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  JSON Data *
+                </label>
+                <textarea
+                  value={jsonInput}
+                  onChange={(e) => {
+                    setJsonInput(e.target.value);
+                    setJsonError('');
+                  }}
+                  className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+                  placeholder="Paste your university JSON data here..."
+                />
+              </div>
+
+              {/* Error Display */}
+              {jsonError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center">
+                    <AlertCircle className="w-4 h-4 text-red-500 mr-2" />
+                    <span className="text-sm text-red-700 font-medium">Error:</span>
+                  </div>
+                  <p className="text-sm text-red-600 mt-1">{jsonError}</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowJsonUniversityForm(false);
+                    setJsonInput('');
+                    setJsonError('');
+                    setShowJsonStructure(false);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addUniversityFromJson}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add University/ies
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
