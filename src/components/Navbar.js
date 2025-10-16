@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useCompany } from '../contexts/CompanyContext';
 import { Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useNavigationWithScroll } from '../utils/navigation';
 
 const Navbar = () => {
   const { currentUser, userRole, logout } = useAuth();
-  const { companyInfo } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
   const { navigateWithScroll } = useNavigationWithScroll();
 
