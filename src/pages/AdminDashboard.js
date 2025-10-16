@@ -35,8 +35,7 @@ import {
   Eye,
   EyeOff,
   ToggleLeft,
-  ToggleRight,
-  Minus
+  ToggleRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { initializeUniversities } from '../utils/initializeUniversities';
