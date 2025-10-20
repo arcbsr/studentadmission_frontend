@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -6,16 +6,8 @@ import { database } from '../firebase/config';
 import { ref, push, get, update, onValue } from 'firebase/database';
 import { User, MessageSquare, BookOpen, Globe } from 'lucide-react';
 
-const InquiryForm = () => {
-  const [loading, setLoading] = useState(false);
-  const [agentInfo, setAgentInfo] = useState(null);
-  const [countries, setCountries] = useState([]);
-  const [universities, setUniversities] = useState([]);
-  const [filteredUniversities, setFilteredUniversities] = useState([]);
-  const navigate = useNavigate();
-
-  // UK Universities list from AdmissionInfo
-  const ukUniversities = [
+// UK Universities list from AdmissionInfo - moved outside component to prevent recreation
+const UK_UNIVERSITIES = [
     "University of Bolton",
     "Anglia Ruskin University (ARU)",
     "University of Greenwich",
@@ -104,7 +96,15 @@ const InquiryForm = () => {
     "University of Wolverhampton",
     "University of York",
     "University of Gloucestershire"
-  ];
+];
+
+const InquiryForm = () => {
+  const [loading, setLoading] = useState(false);
+  const [agentInfo, setAgentInfo] = useState(null);
+  const [countries, setCountries] = useState([]);
+  const [universities, setUniversities] = useState([]);
+  const [filteredUniversities, setFilteredUniversities] = useState([]);
+  const navigate = useNavigate();
   
   const { register, handleSubmit, watch, formState: { errors }, reset, setValue } = useForm();
   const agentReferralKey = watch('agentReferralKey');
@@ -116,7 +116,7 @@ const InquiryForm = () => {
     if (country && country.trim() !== '') {
       // Special handling for United Kingdom
       if (country.toLowerCase() === 'united kingdom' || country.toLowerCase() === 'uk') {
-        const ukUniList = ukUniversities.map((uni, index) => ({
+        const ukUniList = UK_UNIVERSITIES.map((uni, index) => ({
           id: `uk-${index}`,
           name: uni,
           country: 'United Kingdom'
@@ -130,7 +130,7 @@ const InquiryForm = () => {
     } else {
       setFilteredUniversities([]);
     }
-  }, [universities, ukUniversities]);
+  }, [universities]);
 
   // Reset university when country changes
   useEffect(() => {
