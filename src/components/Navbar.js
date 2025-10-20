@@ -50,7 +50,7 @@ const Navbar = () => {
               <>
                 <Link to="/" className="text-gray-700 hover:text-primary-600 transition-colors">Home</Link>
                 <Link to="/about" className="text-gray-700 hover:text-primary-600 transition-colors">About</Link>
-                <Link to="/universities" className="text-gray-700 hover:text-primary-600 transition-colors">Universities</Link>
+                <Link to="/admission-info" className="text-gray-700 hover:text-primary-600 transition-colors">Admission Info (UK)</Link>
                 <Link to="/contact" className="text-gray-700 hover:text-primary-600 transition-colors">Contact</Link>
                 <Link to="/faq" className="text-gray-700 hover:text-primary-600 transition-colors">FAQ</Link>
                 <Link to="/inquiry" className="btn-primary">Apply Now</Link>
@@ -103,9 +103,9 @@ const Navbar = () => {
                 <Link to="/" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
                   Home
                 </Link>
-                <Link to="/universities" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
-                  Universities
-                </Link>
+              <Link to="/admission-info" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
+                Admission Info (UK)
+              </Link>
                 <Link to="/about" className="block text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-base font-medium">
                   About
                 </Link>

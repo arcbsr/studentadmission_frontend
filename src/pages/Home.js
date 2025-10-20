@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCompany } from '../contexts/CompanyContext';
-import { GraduationCap, Globe, Users, Award, ArrowRight, CheckCircle, Shield, TrendingUp, Home as HomeIcon, Briefcase, LifeBuoy } from 'lucide-react';
+import { GraduationCap, Globe, Users, Award, ArrowRight, CheckCircle, Shield, TrendingUp, Home as HomeIcon, Briefcase, LifeBuoy, Mail, Phone, MapPin } from 'lucide-react';
 import { useNavigationWithScroll } from '../utils/navigation';
 
 const Home = () => {
@@ -13,7 +13,7 @@ const Home = () => {
   };
 
   const handleExploreUniversities = () => {
-    navigateWithScroll('/universities');
+    navigateWithScroll('/admission-info');
   };
 
   const features = [
@@ -124,69 +124,73 @@ const Home = () => {
 
             {/* Right card */}
             <div className="hidden lg:block fade-in-up lg:delay-100">
-              <div className="relative home-surface rounded-2xl p-8 float-slow transition-transform hover:-translate-y-1" 
+              <div className="bg-white/10 backdrop-blur-md rounded-lg p-8 shadow-xl border border-white/20"
                    style={{
-                     boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
-                     border: '1px solid rgba(255,255,255,0.15)'
+                     background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+                     boxShadow: '0 8px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.1)'
                    }}>
-                
-                {/* Simple header */}
+                {/* Clean header */}
                 <div className="text-center mb-8">
-                  <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs mb-4">
-                    <span className="inline-flex h-2 w-2 rounded-full mr-2 animate-pulse" style={{backgroundColor:'var(--color-muted-gold)'}}></span>
-                    We reply within 24 hours
-                  </div>
-                  <h3 className="text-2xl font-bold mb-2">Quick Contact</h3>
-                  <p className="home-muted-text text-sm">Get in touch with our expert advisors</p>
+                  <h3 className="text-2xl font-semibold text-white mb-2">Contact Us</h3>
+                  <p className="text-white/80">Get in touch with our education consultants</p>
                 </div>
                 
-                {/* Simple contact items */}
+                {/* Simple contact methods */}
                 <div className="space-y-4 mb-8">
-                  <a href={`mailto:${companyInfo.email}`} className="group flex items-center p-4 rounded-xl transition-all duration-200 hover:bg-white/10">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mr-4 transition-transform group-hover:scale-105" 
-                         style={{backgroundColor: 'var(--color-crimson-red)'}}>
-                      <span className="text-white text-lg">📧</span>
+                  <a href={`mailto:${companyInfo.email}`} 
+                     className="flex items-center p-4 bg-white/10 hover:bg-white/20 rounded-lg transition-colors group backdrop-blur-sm">
+                    <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
+                      <Mail className="w-5 h-5 text-blue-300" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs home-muted-text uppercase font-medium mb-1">Email</p>
-                      <p className="font-semibold text-sm">{companyInfo.email}</p>
+                      <p className="font-medium text-white">Email</p>
+                      <p className="text-sm text-white/70">{companyInfo.email}</p>
                     </div>
+                    <ArrowRight className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
                   </a>
-                  
-                  <a href={`https://wa.me/${companyInfo.whatsapp.replace('+','')}`} target="_blank" rel="noreferrer" 
-                     className="group flex items-center p-4 rounded-xl transition-all duration-200 hover:bg-white/10">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mr-4 transition-transform group-hover:scale-105" 
-                         style={{background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)'}}>
-                      <span className="text-white text-lg">📱</span>
+
+                  <a href={`https://wa.me/${companyInfo.whatsapp.replace('+','')}`} target="_blank" rel="noreferrer"
+                     className="flex items-center p-4 bg-white/10 hover:bg-white/20 rounded-lg transition-colors group backdrop-blur-sm">
+                    <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center mr-4">
+                      <Phone className="w-5 h-5 text-green-300" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs home-muted-text uppercase font-medium mb-1">WhatsApp</p>
-                      <p className="font-semibold text-sm">{companyInfo.whatsapp}</p>
+                      <p className="font-medium text-white">WhatsApp</p>
+                      <p className="text-sm text-white/70">{companyInfo.whatsapp}</p>
                     </div>
+                    <ArrowRight className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
                   </a>
-                  
-                  <div className="flex items-center p-4 rounded-xl">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mr-4" 
-                         style={{backgroundColor: 'var(--color-muted-gold)'}}>
-                      <span className="text-white text-lg">📍</span>
+
+                  <div className="flex items-center p-4 bg-white/10 rounded-lg backdrop-blur-sm">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mr-4">
+                      <MapPin className="w-5 h-5 text-white/80" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs home-muted-text uppercase font-medium mb-1">Location</p>
-                      <p className="font-semibold text-sm">{companyInfo.location}</p>
+                      <p className="font-medium text-white">Office</p>
+                      <p className="text-sm text-white/70">{companyInfo.location}</p>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Simple action buttons */}
-                <div className="flex gap-3">
-                  <a href={`mailto:${companyInfo.email}`} 
-                     className="flex-1 home-btn-primary py-3 rounded-xl text-center font-medium transition-transform hover:scale-105 home-accent-border">
-                    Email Us
+                <div className="space-y-3">
+                  <a href={`mailto:${companyInfo.email}`}
+                     className="w-full bg-blue-500/80 hover:bg-blue-500 text-white py-3 px-4 rounded-lg text-center font-medium transition-colors flex items-center justify-center backdrop-blur-sm">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email
                   </a>
                   <a href={`https://wa.me/${companyInfo.whatsapp.replace('+','')}`} target="_blank" rel="noreferrer"
-                     className="flex-1 home-btn-secondary py-3 rounded-xl text-center font-medium transition-transform hover:scale-105">
-                    WhatsApp
+                     className="w-full bg-green-500/80 hover:bg-green-500 text-white py-3 px-4 rounded-lg text-center font-medium transition-colors flex items-center justify-center backdrop-blur-sm">
+                    <Phone className="w-4 h-4 mr-2" />
+                    WhatsApp Chat
                   </a>
+                </div>
+
+                {/* Professional footer */}
+                <div className="text-center mt-6 pt-4 border-t border-white/20">
+                  <p className="text-xs text-white/60">
+                    Professional consultation • Free of charge
+                  </p>
                 </div>
               </div>
             </div>

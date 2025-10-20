@@ -9,6 +9,7 @@ import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Universities from './pages/Universities';
+import AdmissionInfo from './pages/AdmissionInfo';
 import InquiryForm from './pages/InquiryForm';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
@@ -52,6 +53,11 @@ function App() {
                 <Route path="/universities" element={
                   <RedirectIfAuthenticated>
                     <Universities />
+                  </RedirectIfAuthenticated>
+                } />
+                <Route path="/admission-info" element={
+                  <RedirectIfAuthenticated>
+                    <AdmissionInfo />
                   </RedirectIfAuthenticated>
                 } />
                 <Route path="/inquiry" element={

@@ -13,6 +13,98 @@ const InquiryForm = () => {
   const [universities, setUniversities] = useState([]);
   const [filteredUniversities, setFilteredUniversities] = useState([]);
   const navigate = useNavigate();
+
+  // UK Universities list from AdmissionInfo
+  const ukUniversities = [
+    "University of Bolton",
+    "Anglia Ruskin University (ARU)",
+    "University of Greenwich",
+    "University of Bedfordshire",
+    "University of Suffolk",
+    "University of Ulster",
+    "University of Northumbria",
+    "University of Middlesex",
+    "University of Roehampton",
+    "Solent University Southampton",
+    "University of Trinity St. David (TSD)",
+    "University of Sunderland",
+    "The University of Law",
+    "Canterbury Christ Church University",
+    "Cardiff Metropolitan University",
+    "University of West of Scotland",
+    "Architectural Association School of Architecture",
+    "University of Aberdeen",
+    "Aberystwyth University",
+    "Alliance Manchester Business School",
+    "Bucks(Buckinghamshire) New University",
+    "Leeds Trinity University",
+    "Leicester College (HND) P60- 3 years",
+    "Amity University [IN]",
+    "Arts University Bournemouth",
+    "Goldsmith, University of London",
+    "University of Hull",
+    "Imperial college",
+    "Keele University",
+    "Aston University",
+    "University of Bangor",
+    "University of Bath",
+    "University of Bath School of Management",
+    "Bath spa University",
+    "Birkbeck, University of London",
+    "University of Birmingham",
+    "Birmingham City University",
+    "Bournemouth University",
+    "BPP University",
+    "University of Bradford",
+    "University of Brighton",
+    "University of Bristol",
+    "Brunel University London",
+    "University of Cambridge",
+    "Cardiff University",
+    "Cass Business School",
+    "University of Chester",
+    "City University",
+    "Coventry University",
+    "University of Cumbria",
+    "De Montfort University",
+    "University of Derby",
+    "Dublin City University",
+    "Durham University",
+    "University of East Anglia",
+    "University of East London",
+    "University of Edinburgh",
+    "University of Essex",
+    "University of Exeter",
+    "University of Glasgow",
+    "University of Kent",
+    "King's College London",
+    "Kingston University",
+    "University of Liverpool",
+    "Liverpool Hope University",
+    "Liverpool John Moore University",
+    "London Business School",
+    "London School of Economics (LSE)",
+    "London Southbank University",
+    "University of Manchester",
+    "Middlesex University",
+    "University of Oxford",
+    "Queen Mary University of London",
+    "University of Reading",
+    "Richmond University",
+    "Sheffield University",
+    "SOAS, University of London",
+    "University of St. Andrews",
+    "St. George's University Newcastle",
+    "University of Surrey",
+    "University of Sussex",
+    "UCL",
+    "University College Birmingham",
+    "University of West London",
+    "University of Westminster",
+    "University of Wolverhampton",
+    "University of York",
+    "University of Gloucestershire"
+  ];
   
   const { register, handleSubmit, watch, formState: { errors }, reset, setValue } = useForm();
   const agentReferralKey = watch('agentReferralKey');
@@ -22,12 +114,23 @@ const InquiryForm = () => {
   // Manual filtering function with useCallback
   const filterUniversitiesByCountry = useCallback((country) => {
     if (country && country.trim() !== '') {
-      const filtered = universities.filter(uni => uni.country === country);
-      setFilteredUniversities(filtered);
+      // Special handling for United Kingdom
+      if (country.toLowerCase() === 'united kingdom' || country.toLowerCase() === 'uk') {
+        const ukUniList = ukUniversities.map((uni, index) => ({
+          id: `uk-${index}`,
+          name: uni,
+          country: 'United Kingdom'
+        }));
+        setFilteredUniversities(ukUniList);
+      } else {
+        // Regular filtering for other countries
+        const filtered = universities.filter(uni => uni.country === country);
+        setFilteredUniversities(filtered);
+      }
     } else {
       setFilteredUniversities([]);
     }
-  }, [universities]);
+  }, [universities, ukUniversities]);
 
   // Reset university when country changes
   useEffect(() => {
@@ -68,10 +171,15 @@ const InquiryForm = () => {
         
         // Extract unique countries and clean them
         const uniqueCountries = [...new Set(universitiesList.map(uni => uni.country).filter(Boolean))].sort();
+        // Ensure United Kingdom is always included
+        if (!uniqueCountries.includes('United Kingdom')) {
+          uniqueCountries.unshift('United Kingdom');
+        }
         setCountries(uniqueCountries);
       } else {
         setUniversities([]);
-        setCountries([]);
+        // Even if no universities in database, include United Kingdom
+        setCountries(['United Kingdom']);
       }
     });
 
