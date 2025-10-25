@@ -19,7 +19,8 @@ import {
   X,
   ExternalLink,
   Clock,
-  MapPin
+  MapPin,
+  Download
 } from 'lucide-react';
 
 const AdmissionInfo = () => {
@@ -348,25 +349,40 @@ const AdmissionInfo = () => {
                 
                 {/* Enhanced Search Bar */}
                 <div className="px-8 py-6 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Search className="h-6 w-6 text-blue-500" />
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1 mr-4">
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Search className="h-6 w-6 text-blue-500" />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Search universities by name..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="block w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-lg"
+                        />
+                        {searchTerm && (
+                          <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-gray-100 rounded-r-2xl transition-colors"
+                          >
+                            <X className="h-6 w-6 text-gray-400 hover:text-gray-600 transition-colors" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Search universities by name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-lg"
-                    />
-                    {searchTerm && (
-                      <button
-                        onClick={() => setSearchTerm('')}
-                        className="absolute inset-y-0 right-0 pr-4 flex items-center hover:bg-gray-100 rounded-r-2xl transition-colors"
-                      >
-                        <X className="h-6 w-6 text-gray-400 hover:text-gray-600 transition-colors" />
-                      </button>
-                    )}
+                    
+                    {/* Brochure Download Link */}
+                    <a
+                      href="https://drive.google.com/uc?export=view&id=1TvJ_8bp-DtJNwdnbw_6LXIPT0KHZIxoX"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    >
+                      <Download className="w-5 h-5 mr-2" />
+                      <span className="font-semibold">Download Brochure</span>
+                    </a>
                   </div>
                   {searchTerm && (
                     <div className="mt-3 flex items-center justify-between">
